@@ -10,6 +10,11 @@ model runs locally on Apple Silicon.
 You stay the director. The machine does the slow work, and at every gate you **choose**: pick the song take you like,
 approve or redo each picture and each clip, from your desk or from your phone on the sofa.
 
+<p align="center">
+  <img src="docs/media/demo.webp" width="720" alt="Five seconds of a finished Rhymeworks video: two children run along a beach towards a temple, row a boat with a boy wearing a peacock-feather crown, and swing under a flowering tree">
+  <br><sub>Moving clips from <i>जगन्नाथ, मेरे रक्षक</i>, a Hindi song made entirely on one MacBook.</sub>
+</p>
+
 Rhymeworks was built to make the songs for **Gaana Gaadi** (गाना गाड़ी, "song vehicle"), a channel of English
 nursery rhymes and Hindi children's songs. It works for any channel or language you set up.
 
@@ -18,6 +23,7 @@ nursery rhymes and Hindi children's songs. It works for any channel or language 
 **Contents**
 
 - [What it makes](#what-it-makes)
+- [A look at the studio](#a-look-at-the-studio)
 - [How it works](#how-it-works)
 - [What you need](#what-you-need)
 - [Install](#install)
@@ -53,6 +59,28 @@ One **episode** = one song video, usually 1–3 minutes long:
 | Upload pack | Thumbnails with real lettering (Latin and Devanagari), title, description with chapters and lyrics, tags, a YouTube checklist | Gemma 4, CoreText, Pillow |
 
 You upload to YouTube yourself; Rhymeworks never touches your channel.
+
+<img src="docs/media/keyframes.jpg" alt="Eight keyframes made with Rhymeworks: children rowing a boat past a temple, a smiling bus driver, children on a flower swing, animals riding a bus, a boy offering a garland at a lamp-lit temple at night, a bus in the hills, children in the waves, and two children waving beside the bus">
+<sub>Keyframes from two episodes: the same characters stay on-model from shot to shot because each one is drawn from its own reference sheet.</sub>
+
+## A look at the studio
+
+The studio runs in your browser and on your phone. Every picture below is a real episode.
+
+<img src="docs/media/studio-episode.jpg" alt="The episode page: the steps from song to upload pack across the top, the finished film in a player, and the Director panel on the right with a change made in plain words">
+<sub><b>Episode.</b> Where the episode is, the finished film, and the Director: ask for a change in plain words and apply it when you like it.</sub>
+
+<img src="docs/media/studio-storyboard.jpg" alt="The storyboard: every shot as a keyframe with its time, lyric, feeling and place, with filters by status, character and place">
+<sub><b>Storyboard.</b> Every shot with its lyric and feeling; filter by status, by who is in it, or by where it happens.</sub>
+
+<img src="docs/media/studio-review.jpg" alt="Reviewing keyframes: a grid of shots with Approve and Redo buttons, and the selected shot's prompt, seed and a note for the redo">
+<sub><b>Review.</b> Approve or redo each shot; a redo re-renders only that shot with a new seed.</sub>
+
+<img src="docs/media/studio-watch.jpg" alt="The Watch player showing a moving clip of three children in a boat, with the Hindi lyric and the shot's feeling below">
+<sub><b>Watch.</b> The episode cut to the song in the browser, from keyframes or moving clips, long before the final film exists.</sub>
+
+<img src="docs/media/studio-phone.jpg" alt="Three phone screens: reviewing clips with Redo and Approve buttons, the episode page with its player, and the shot-by-shot player">
+<sub><b>On your phone.</b> Review clips, watch the episode and ask for changes from the sofa.</sub>
 
 ## How it works
 
