@@ -18,6 +18,16 @@ approve or redo each picture and each clip, from your desk or from your phone on
 Rhymeworks was built to make the songs for **Gaana Gaadi** (गाना गाड़ी, "song vehicle"), a channel of English
 nursery rhymes and Hindi children's songs. It works for any channel or language you set up.
 
+**Watch a finished episode:** *Wheels on the Bus*, a village bus ride with animals, made start to finish with Rhymeworks
+and published on [Gaana Gaadi on YouTube](https://www.youtube.com/@GaanaGaadi).
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=qcEoRW6A7sg" title="Watch Wheels on the Bus on YouTube">
+    <img src="docs/media/wheels-on-the-bus.jpg" width="720" alt="Wheels on the Bus: a turquoise village bus with a garland of marigolds, a smiling driver and two waving children. Click to watch on YouTube">
+  </a>
+  <br><sub>Click to watch on YouTube (opens youtube.com).</sub>
+</p>
+
 ---
 
 **Contents**
