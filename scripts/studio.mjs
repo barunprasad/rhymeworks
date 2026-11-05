@@ -13,8 +13,9 @@ import { fileURLToPath } from "node:url";
 import { logoArea, qrEncode } from "../packages/studio/src/lib/qr.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const API_PORT = 8765;
-const WEB_PORT = 5173;
+const API_PORT = Number(process.env.API_PORT ?? 8765);   // change both to run a second studio side by side
+const WEB_PORT = Number(process.env.WEB_PORT ?? 5173);
+process.env.RHYMEWORKS_API_PORT = String(API_PORT);       // read by vite.config.ts
 const LAN = !!process.env.LAN;
 const color = (c, s) => `\x1b[${c}m${s}\x1b[0m`;
 

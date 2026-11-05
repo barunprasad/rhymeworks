@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// The Python studio API runs on :8765 (npm run studio starts both). Proxy keeps everything same-origin.
-const API = "http://127.0.0.1:8765";
+declare const process: { env: Record<string, string | undefined> };
+
+// The Python studio API runs on :8765 (npm run studio starts both; API_PORT changes it). Proxy keeps everything same-origin.
+const API = `http://127.0.0.1:${process.env.RHYMEWORKS_API_PORT ?? 8765}`;
 
 export default defineConfig({
   plugins: [react()],

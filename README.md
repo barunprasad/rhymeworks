@@ -69,6 +69,18 @@ flowchart LR
 
 - **Everything is a file you can read.** An episode is one `episode.toml` plus folders of pictures, clips and audio.
   The studio edits that file for you (and checks every change before saving), but you can open it in any editor.
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> Rendering: queued
+  Rendering --> ToReview: done
+  ToReview --> Approved: Approve
+  ToReview --> Rendering: Redo (new seed, this shot only)
+  ToReview --> Approved: Options, pick one
+  Approved --> ToReview: you edit the shot
+  Approved --> [*]
+```
+
 - **Redo is cheap and precise.** A redo picks a new random seed for *that one shot* and re-renders only it.
 - **Approvals are honest.** If you change a shot after approving it, its approval goes stale and it asks for review again.
 - **One heavy model at a time.** A Mac with 32 GB can run any one of the models comfortably but not two, so all GPU
@@ -153,6 +165,20 @@ This also serves the studio on your Wi-Fi and prints a QR code (the desktop side
 
 The phone link carries a private key, so other people on the same Wi-Fi can't open your studio:
 
+```mermaid
+sequenceDiagram
+  participant P as Phone
+  participant W as Web app (Wi-Fi)
+  participant A as Studio API (this Mac only)
+  P->>W: scan the QR code: /api/unlock?k=KEY
+  W->>A: forwards it (and says who is asking)
+  A-->>P: key matches, cookie set, open the studio
+  P->>W: every later request carries the cookie
+  W->>A: forwarded
+  A-->>P: allowed
+  Note over A: Make a new link = new key,<br/>every phone must scan again
+```
+
 - your Mac itself is always trusted;
 - a phone has to open the QR link once, which sets a cookie holding the key;
 - **Make a new link** (under Open on your phone) changes the key and unlinks every phone;
@@ -166,21 +192,38 @@ The key lives in `studio/lan_key` on your Mac only.
 Your work is kept **outside the code**, so you can update Rhymeworks with `git pull` without touching it, and the code
 can be public while your work stays yours.
 
+```mermaid
+flowchart LR
+  subgraph code["Code: this repo (public)"]
+    engine["engine, tools,<br/>studio, templates"]
+  end
+  subgraph content["Content folder (yours, can sync)"]
+    work["episodes, characters,<br/>places, brand, channels"]
+  end
+  subgraph state["This computer only (never synced)"]
+    q["job queue, logs,<br/>library drafts, phone key"]
+  end
+  engine -- reads and writes --> work
+  engine -- keeps --> q
+  work <-. "Google Drive / iCloud / Dropbox" .-> other["your other computers"]
 ```
-~/Rhymeworks/                  your content folder
-├── projects.toml              your channels (name, icon, languages, upload text)
-├── episodes/<slug>/           one folder per video
-│   ├── episode.toml           the script: song timing and one [[shot]] per line
-│   ├── song/                  takes, the mastered song, the isolated vocal
-│   ├── keys/                  keyframes (<shot>_a.png, end frames <shot>_b.png, options/, contact.jpg)
-│   ├── clips/                 moving clips (<shot>.mp4, contact.jpg)
-│   ├── review.toml            your approvals
-│   └── upload/                1080p film, thumbnails, upload_text.md
-└── assets/
-    ├── registry.toml          your characters, props and places, described once
-    ├── cast/  props/  scenes/ their pictures
-    ├── voices.toml  voices/   voice styles and their samples
-    └── brand/                 optional: intro/intro.mp4 (put in front of every film) and your icon
+
+```mermaid
+flowchart LR
+  home[("~/Rhymeworks<br/>your content folder")]
+  home --> proj["projects.toml<br/>your channels: name, icon,<br/>languages, upload text"]
+  home --> eps["episodes/&lt;slug&gt;/<br/>one folder per video"]
+  home --> assets["assets/"]
+  eps --> toml["episode.toml<br/>song timing + one shot per line"]
+  eps --> song["song/<br/>takes, master, isolated vocal"]
+  eps --> keys["keys/<br/>keyframes, end frames,<br/>options, contact sheet"]
+  eps --> clips["clips/<br/>moving clips, contact sheet"]
+  eps --> rv["review.toml<br/>your approvals"]
+  eps --> up["upload/<br/>1080p film, thumbnails,<br/>upload text"]
+  assets --> reg["registry.toml<br/>characters, props, places"]
+  assets --> pics["cast/ props/ scenes/<br/>their pictures"]
+  assets --> voices["voices.toml + voices/<br/>voice styles and samples"]
+  assets --> brand["brand/ (optional)<br/>intro.mp4 and icon"]
 ```
 
 ```sh
@@ -337,27 +380,64 @@ commands without running them.
 
 ## How the code is organised
 
-```
-pipeline/            Python: the kidzone CLI, the engines' glue and the studio API
-  kidzone/pixar.py     the episode engine (keyframes, clips, assembly, packaging)
-  kidzone/paths.py     where everything lives (code, content folder, this computer's state)
-  kidzone/songmaker.py songs: takes, scoring, mastering, import
-  kidzone/studio/      FastAPI app, SQLite job queue, worker, review, validated episode/registry writers, phone lock
-  tools/               melody guide, mastering, vocal split, motion check, brand tools (font, lettering, intro)
-packages/studio/     the studio web app (React 19 + Vite + TypeScript, no UI framework)
-scripts/             studio.mjs (npm run studio) and setup-engines.sh (npm run setup / doctor)
-templates/           a new episode, and the starter content folder
-spikes/              engines, models and Python environments (downloaded by setup; only the lock files are in git)
-packages/compositions/, pipeline/kidzone/stages/   the earlier 2D pipeline (Remotion; `kidzone run <brief.json>`), kept working
-PLAN.md              the original plan for the 2D pipeline
+```mermaid
+flowchart LR
+  subgraph you["You"]
+    browser["Browser on this Mac"]
+    phone["Phone on your Wi-Fi"]
+  end
+  subgraph web["Web app · Vite :5173"]
+    app["React studio<br/>packages/studio"]
+  end
+  subgraph api["Studio API · 127.0.0.1:8765"]
+    rest["FastAPI + phone lock<br/>pipeline/kidzone/studio"]
+    db[("SQLite job queue")]
+    worker["Worker<br/>one GPU job at a time"]
+  end
+  subgraph gpu["kidzone subprocesses"]
+    pixar["pixar.py<br/>keys · clips · assemble · package"]
+    songs["songmaker.py<br/>takes · master · import"]
+    assets["assetmaker.py<br/>library pictures"]
+  end
+  subgraph models["Local models"]
+    flux["FLUX.2 klein"]
+    ltx["LTX-2.3"]
+    ace["ACE-Step 1.5"]
+    llm["Gemma 4 (Ollama)"]
+  end
+  browser --> app
+  phone -- "QR link key" --> app
+  app -- "/api, /files (proxy)" --> rest
+  rest -- "live updates (SSE)" --> app
+  rest --> db --> worker
+  worker --> pixar & songs & assets
+  pixar --> flux & ltx
+  songs --> ace
+  assets --> flux
+  rest -. Director, drafts .-> llm
+  pixar & songs & assets --> home[("Content folder")]
 ```
 
-- The studio API runs on `127.0.0.1:8765` and the web app on `:5173`, which proxies `/api` and `/files` to it.
-  Live updates arrive over one server-sent events stream (`/api/events`).
+| Path | What |
+|---|---|
+| `pipeline/kidzone/pixar.py` | The episode engine: keyframes, clips, assembly, packaging |
+| `pipeline/kidzone/paths.py` | Where everything lives: code, content folder, this computer's state |
+| `pipeline/kidzone/songmaker.py` | Songs: takes, scoring, mastering, import |
+| `pipeline/kidzone/studio/` | FastAPI app, SQLite job queue, worker, review, validated episode/registry writers, phone lock |
+| `pipeline/tools/` | Melody guide, mastering, vocal split, motion check, brand tools (font, lettering, intro) |
+| `packages/studio/` | The studio web app (React 19 + Vite + TypeScript, no UI framework) |
+| `scripts/` | `studio.mjs` (`npm run studio`) and `setup-engines.sh` (`npm run setup` / `doctor`) |
+| `templates/` | A new episode, and the starter content folder |
+| `spikes/` | Engines, models and Python environments (downloaded by setup; only the lock files are in git) |
+| `pipeline/kidzone/stages/`, `packages/compositions/` | The earlier 2D pipeline (Remotion; `kidzone run <brief.json>`), kept working |
+
 - GPU work runs as `kidzone` subprocesses started by the worker, so a crash never takes down the studio.
 - Every write to an `episode.toml` or `registry.toml` keeps your formatting and comments, and is checked by loading
   the result with the engine before it is saved.
-- The studio's QR encoder (`packages/studio/src/lib/qr.js`) is its own, with no dependencies, and shared by the launcher and the app.
+- `API_PORT` and `WEB_PORT` run a second studio next to the first; with `RHYMEWORKS_HOME` and `RHYMEWORKS_STATE` it
+  gets its own content and queue.
+- The studio's QR encoder (`packages/studio/src/lib/qr.js`) is its own, with no dependencies, and shared by the launcher
+  and the app. [AGENTS.md](AGENTS.md) has the details for contributors.
 
 ## Development
 

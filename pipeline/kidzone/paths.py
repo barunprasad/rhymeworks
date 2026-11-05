@@ -4,7 +4,7 @@ CODE   this repository: engine, tools, web app, templates. Public; no personal c
 HOME   your content folder: episodes, characters/places/props (assets/), brand, voices, the old 2D library, projects.toml.
        Put it inside a synced folder (Google Drive for desktop, iCloud Drive, Dropbox) to see it on your other computers.
 STATE  this computer only, never synced: the job queue database, logs, drafts (a draft may hold a photo reference of a
-       real person) and the phone-link key. Lives in <repo>/studio/ (gitignored).
+       real person) and the phone-link key. Lives in <repo>/studio/ (gitignored), or $RHYMEWORKS_STATE.
 
 HOME is chosen by, in order:
   1. $RHYMEWORKS_HOME
@@ -19,7 +19,7 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parents[2]
 LOCAL_CONFIG = CODE / "rhymeworks.local.toml"
-STATE = CODE / "studio"
+STATE = Path(os.environ["RHYMEWORKS_STATE"]).expanduser().resolve() if os.environ.get("RHYMEWORKS_STATE") else CODE / "studio"
 TEMPLATES = CODE / "templates"
 BRAND_TOOLS = CODE / "pipeline" / "tools" / "brand"   # text.swift, add_intro.sh, the Baloo 2 font (OFL)
 
