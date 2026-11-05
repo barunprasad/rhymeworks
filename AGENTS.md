@@ -82,6 +82,12 @@ at review gates; everything else is automated.
   Filters persist per list (`useSaved`); shared filter bar `src/components/Filters.tsx`; full screen via
   `src/components/Fullscreen.ts` (real Fullscreen API, else a fixed layer, because iPhone Safari only allows `<video>`
   full screen). The QR encoder `src/lib/qr.js` is our own (dependency-free, shared by the launcher and the app).
+- **Projects** (`src/components/Project.tsx`, `studio/projects.py`): `ProjectProvider` holds the current project per browser
+  (`useSaved("project")`, or `all`); Home, the episode list, the sidebar and the phone badge filter with `inProject`, and new
+  episodes are created in it. `POST /api/projects` adds one, `PATCH /api/projects/{id}` edits name / tagline / icon (a picture
+  path in HOME, e.g. a library item's `path`) / languages / `subscribe` and `playlists` per language, format-preserving and
+  parsed before writing. Sheets that must cover the screen are rendered with `createPortal` (the phone top bar's
+  `backdrop-filter` makes it the containing block for fixed elements).
 - **Animatic / Watch** (`#/episodes/<slug>/watch`): keyframes (Ken Burns) or clips cut to the song in the browser, no
   GPU. The clip player keeps the previous, current and next `<video>` mounted with the keyframe as poster, so cuts never flash black.
 

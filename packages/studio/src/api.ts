@@ -7,9 +7,13 @@ export type JobKind = Phase | "draft" | "upload" | "asset" | "song" | "master" |
 export type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
 export type WorkerState = "idle" | "running" | "paused" | "waiting_hours" | "waiting_memory";
 
-export interface Project { id: string; name: string; tagline?: string; icon: string | null; languages?: string[] }
+export interface Project {
+  id: string; name: string; tagline?: string; icon: string | null; icon_path?: string | null; languages?: string[];
+  subscribe?: Record<string, string>; playlists?: Record<string, string>;
+}
+export interface ProjectPatch { name?: string; tagline?: string; icon?: string | null; languages?: string[]; subscribe?: Record<string, string>; playlists?: Record<string, string> }
 export interface Usage { shots: number; episodes: { slug: string; title: string; shots: string[] }[] }
-export interface LibraryItem { id: string; kind: "cast" | "prop" | "scene"; token?: string; ref?: string | null; style?: string | null; person?: boolean; image: string | null; added: number | null; used: Usage }
+export interface LibraryItem { id: string; kind: "cast" | "prop" | "scene"; token?: string; ref?: string | null; style?: string | null; person?: boolean; image: string | null; path?: string; added: number | null; used: Usage }
 export interface Library { cast: LibraryItem[]; props: LibraryItem[]; scenes: LibraryItem[] }
 export interface EpisodeSummary {
   slug: string; title: string; lang?: string; project: string; shots: number; keys: number; clips: number;
@@ -39,7 +43,7 @@ export interface ShotList {
   slug: string; episode: { title: string; lang?: string; status?: string }; song: { line_seconds?: number; audio?: string };
   vars: Record<string, string>; shots: ShotRow[]; tokens: TokenInfo[]; scenes: { id: string; image: string | null }[]; jobs: Job[];
 }
-export interface NewEpisodeReq { title: string; lang: "en" | "hi"; lyrics: string; line_seconds: number; bpm?: number; scene: string; slug?: string }
+export interface NewEpisodeReq { title: string; lang: "en" | "hi"; lyrics: string; line_seconds: number; bpm?: number; scene: string; slug?: string; project?: string }
 export interface UploadPack {
   slug: string; title: string; lang: string; playlist: string; published: boolean; episode_ready: boolean;
   video: { url: string; name: string; mb: number } | null;
@@ -89,6 +93,8 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 export const api = {
   health: () => req<Health>("GET", "/api/health"),
   projects: () => req<Project[]>("GET", "/api/projects"),
+  createProject: (name: string, languages?: string[]) => req<Project>("POST", "/api/projects", { name, languages }),
+  patchProject: (id: string, body: ProjectPatch) => req<Project>("PATCH", `/api/projects/${id}`, body),
   library: () => req<Library>("GET", "/api/library"),
   episodes: () => req<EpisodeSummary[]>("GET", "/api/episodes"),
   episode: (slug: string) => req<EpisodeDetail>("GET", `/api/episodes/${slug}`),

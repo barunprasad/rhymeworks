@@ -208,6 +208,7 @@ one shot at a time with big Approve / Redo buttons. From 900 px wide you get the
 | **Upload pack** | The finished file, thumbnails, title, description with chapters and lyrics, tags, and a checklist for YouTube Studio |
 | **Library** | Every character, prop, place and voice style, where each is used, and "New …" to make more |
 | **Queue** | The GPU queue: reorder, cancel, pause, set working hours, clear history |
+| **Projects** | One per channel. The project card at the top of the sidebar (on a phone, the round picture in the top bar) switches between them or shows all; Home and the episode list follow it, new episodes join it, and **Project settings** sets its name, picture, languages and the closing line and playlist for uploads. Characters and places are shared by every project |
 
 ## Review from your phone
 

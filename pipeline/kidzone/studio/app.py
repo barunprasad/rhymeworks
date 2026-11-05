@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from .. import pixar
 from .. import paths
 from . import lock, review, shotlist
+from . import projects as projectsedit
 from .store import Store
 from .specedit import bump_seed, set_table_field
 from .worker import KINDS, Events, Worker, episode_spec, in_work_hours
@@ -109,9 +110,47 @@ def health(request: Request):
     return {"ok": True, "worker": worker.state, "running_job": worker.current, "lan_url": _lan_url(request)}
 
 
+def _project_out(pid: str, p: dict) -> dict:
+    return {"id": pid, **p, "icon": file_url(paths.HOME / p["icon"]) if p.get("icon") else None, "icon_path": p.get("icon")}
+
+
 @app.get("/api/projects")
 def projects():
-    return [{"id": pid, **p, "icon": file_url(paths.HOME / p["icon"]) if p.get("icon") else None} for pid, p in paths.projects().items()]
+    return [_project_out(pid, p) for pid, p in paths.projects().items()]
+
+
+class NewProject(BaseModel):
+    name: str
+    languages: list[str] | None = None
+
+
+@app.post("/api/projects")
+def create_project(req: NewProject):
+    try:
+        pid = projectsedit.create(req.name, req.languages)
+    except projectsedit.ProjectError as e:
+        raise HTTPException(400, str(e))
+    events.publish("projects")
+    return _project_out(pid, paths.projects()[pid])
+
+
+class ProjectPatch(BaseModel):
+    name: str | None = None
+    tagline: str | None = None
+    icon: str | None = None
+    languages: list[str] | None = None
+    subscribe: dict[str, str | None] | None = None
+    playlists: dict[str, str | None] | None = None
+
+
+@app.patch("/api/projects/{pid}")
+def patch_project(pid: str, req: ProjectPatch):
+    try:
+        p = projectsedit.update(pid, req.model_dump(exclude_unset=True))
+    except projectsedit.ProjectError as e:
+        raise HTTPException(400 if pid in paths.projects() else 404, str(e))
+    events.publish("projects")
+    return _project_out(pid, p)
 
 
 def _usage() -> dict:
@@ -142,11 +181,11 @@ def library():
         u = use.get(key, {"shots": 0, "episodes": {}})
         return {"shots": u["shots"], "episodes": list(u["episodes"].values())}
     item = lambda kind, iid, v: {"id": iid, "kind": kind, "token": "{" + iid + "}", "ref": v.get("ref"), "style": v.get("style"),
-                                 "person": v.get("person", False), "image": file_url(ASSETS / v["file"]),
+                                 "person": v.get("person", False), "image": file_url(ASSETS / v["file"]), "path": f"assets/{v['file']}",
                                  "added": _mtime(ASSETS / v["file"]), "used": uses(iid)}
     return {"cast": [item("cast", k, v) for k, v in reg.get("cast", {}).items()],
             "props": [item("prop", k, v) for k, v in reg.get("props", {}).items()],
-            "scenes": [{"id": k, "kind": "scene", "image": file_url(ASSETS / f), "added": _mtime(ASSETS / f), "used": uses(f"scene:{k}")}
+            "scenes": [{"id": k, "kind": "scene", "image": file_url(ASSETS / f), "path": f"assets/{f}", "added": _mtime(ASSETS / f), "used": uses(f"scene:{k}")}
                        for k, f in reg.get("scenes", {}).items()]}
 
 

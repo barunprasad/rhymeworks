@@ -3,6 +3,7 @@ import { api, useLoad, type EpisodeSummary } from "../api";
 import { go, href } from "../router";
 import { ErrorNote } from "../components/bits";
 import { ChipRow, ResultLine, SearchBox, SortSelect, matches, useSaved } from "../components/Filters";
+import { ALL, useProject } from "../components/Project";
 
 // 8 workflow steps: idea, lyrics, song, shot list, keyframes, clips, assemble, upload
 export const stageStep: Record<string, number> = { song: 2, "shot list": 3, keys: 4, clips: 5, package: 6, published: 8 };
@@ -17,7 +18,8 @@ const waitingFor = (e: EpisodeSummary) => [
 export function Home() {
   const eps = useLoad(api.episodes, [], ["job", "output", "review", "spec"]);
   const drafts = useLoad(api.drafts, [], ["job", "library"]);
-  const all = eps.data ?? [];
+  const { inProject } = useProject();
+  const all = (eps.data ?? []).filter(inProject);
   const waiting = all.flatMap(waitingFor);
   const recent = [...all].sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0));
   const cont = recent.find((e) => e.stage !== "published");
@@ -139,7 +141,8 @@ export function EpisodesPage() {
   const [lang, setLang] = useSaved("eps.lang", "");
   const [stage, setStage] = useSaved("eps.stage", "");
   const [sort, setSort] = useSaved<Sort>("eps.sort", "recent");
-  const all = eps.data ?? [];
+  const { inProject, project, current } = useProject();
+  const all = (eps.data ?? []).filter(inProject);
   const langs = [...new Set(all.map((e) => e.lang ?? ""))].filter(Boolean);
   const stages = [...new Set(all.map((e) => e.stage))];
   const shown = all
@@ -150,7 +153,7 @@ export function EpisodesPage() {
 
   return (
     <>
-      <header className="row between"><h1>Episodes</h1><a className="btn btn-go" href={href("episodes", "new")}>+ New episode</a></header>
+      <header className="row between"><div className="col" style={{ gap: 2 }}><h1>Episodes</h1><span className="muted small">{current === ALL ? "All projects" : project?.name}</span></div><a className="btn btn-go" href={href("episodes", "new")}>+ New episode</a></header>
       <ErrorNote msg={eps.error} />
       <div className="filters">
         <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>

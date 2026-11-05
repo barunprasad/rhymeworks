@@ -2,11 +2,13 @@ import { useState } from "react";
 import { api, useLoad } from "../api";
 import { go, href } from "../router";
 import { ErrorNote } from "../components/bits";
+import { ALL, useProject } from "../components/Project";
 
 const slugify = (t: string) => t.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 
 /** New episode: title, language, lyrics (one line = one shot) and tempo → episodes/<slug>/episode.toml. */
 export function NewEpisodePage() {
+  const { current } = useProject();
   const lib = useLoad(api.library, []);
   const [title, setTitle] = useState(() => {   // an idea typed on the home page arrives here once
     try { const i = sessionStorage.getItem("rw.idea") ?? ""; sessionStorage.removeItem("rw.idea"); return i.slice(0, 80); } catch { return ""; }
@@ -30,7 +32,7 @@ export function NewEpisodePage() {
   const create = async () => {
     setBusy(true); setErr(null);
     try {
-      const e = await api.createEpisode({ title: title.trim(), lang, lyrics, line_seconds: Math.round(lineSeconds * 1e6) / 1e6, bpm, scene, slug: theSlug });
+      const e = await api.createEpisode({ title: title.trim(), lang, lyrics, line_seconds: Math.round(lineSeconds * 1e6) / 1e6, bpm, scene, slug: theSlug, project: current !== ALL ? current : undefined });
       if (draft && lines.length) await api.run(e.slug, "draft");
       go("episodes", e.slug, "shots");
     } catch (x) { setErr((x as Error).message.replace(/^\w+ \S+: /, "")); setBusy(false); }

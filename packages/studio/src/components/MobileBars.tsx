@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api, useLoad, workerText } from "../api";
 import { href } from "../router";
 import { Logo } from "./bits";
+import { ProjectButton, useProject } from "./Project";
 
 export const DESKTOP = "(min-width: 900px)";
 
@@ -34,8 +35,6 @@ function GpuChip() {
 }
 
 export function TopBar({ back }: { back?: { to: string; label: string; title: string; sub?: string } }) {
-  const projects = useLoad(api.projects, []);
-  const project = projects.data?.[0];
   return (
     <header className="topbar">
       {back ? (
@@ -55,9 +54,7 @@ export function TopBar({ back }: { back?: { to: string; label: string; title: st
         </>
       )}
       <GpuChip />
-      {project?.icon && !back && (
-        <span className="icon-btn" title={`Project: ${project.name}`}><img src={project.icon} alt={`Project: ${project.name}`} style={{ width: 30, height: 30, borderRadius: "50%" }} /></span>
-      )}
+      {!back && <ProjectButton />}
     </header>
   );
 }
@@ -71,7 +68,8 @@ const icons = {
 
 export function TabBar({ section }: { section: string }) {
   const eps = useLoad(api.episodes, [], ["job", "output", "review"]);
-  const waiting = (eps.data ?? []).reduce((n, e) => n + (e.keys_to_review ? 1 : 0) + (e.clips_to_review ? 1 : 0), 0);
+  const { inProject } = useProject();
+  const waiting = (eps.data ?? []).filter(inProject).reduce((n, e) => n + (e.keys_to_review ? 1 : 0) + (e.clips_to_review ? 1 : 0), 0);
   const tabs: [keyof typeof icons, string, string][] = [
     ["home", "Home", href()], ["episodes", "Episodes", href("episodes")], ["library", "Library", href("library", "all")], ["queue", "Queue", href("queue")],
   ];

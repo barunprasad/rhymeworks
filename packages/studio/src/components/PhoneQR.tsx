@@ -1,4 +1,5 @@
 // "Open on your phone": the studio's Wi-Fi address as a branded QR code (desktop only; phones are already there).
+import { Logo } from "./bits";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { logoArea, qrEncode } from "../lib/qr.js";
@@ -56,9 +57,7 @@ export function PhoneSheet({ url: first, onClose }: { url: string | null; onClos
         style={{ position: "relative", width: "min(380px, 100%)", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center",
           background: "linear-gradient(180deg, #1d2a2c 0%, var(--panel) 55%)", borderColor: "#1f4a47" }}>
         <div className="row" style={{ gap: 10 }}>
-          <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#19C6C0" />
-            <path d="M13 22V10l9-2v12" fill="none" stroke={INK} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="10.5" cy="22" r="2.6" fill={INK} /><circle cx="19.5" cy="20" r="2.6" fill={INK} /></svg>
+          <Logo size={34} />
           <h2 id="phone-title" className="brand" style={{ margin: 0, fontSize: 24 }}>Rhymeworks Studio</h2>
         </div>
         {url ? (

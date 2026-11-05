@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { EventHub, HubContext } from "./api";
 import { href, useRoute } from "./router";
 import { Sidebar } from "./components/Sidebar";
+import { ProjectProvider } from "./components/Project";
 import { TabBar, TopBar } from "./components/MobileBars";
 import { EpisodesPage, Home } from "./pages/Home";
 import { LibraryPage } from "./pages/Library";
@@ -75,6 +76,7 @@ export function App() {
 
   return (
     <HubContext.Provider value={hub}>
+      <ProjectProvider>
       {/* review is a focused task on phones: no tab bar, its own Approve / Redo bar instead */}
       <div className={`app ${focus ? "focus" : ""}`}>
         <TopBar back={back} />
@@ -82,6 +84,7 @@ export function App() {
         <main className="main">{page}</main>
         {!focus && <TabBar section={section ?? ""} />}
       </div>
+      </ProjectProvider>
     </HubContext.Provider>
   );
 }
