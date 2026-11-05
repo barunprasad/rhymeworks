@@ -50,7 +50,7 @@ export function TopBar({ back }: { back?: { to: string; label: string; title: st
         </>
       ) : (
         <>
-          <span style={{ paddingLeft: 10 }}><Logo size={28} /></span>
+          <span style={{ paddingLeft: 8 }}><Logo size={38} /></span>
           <span className="brand" style={{ fontSize: 19, flex: 1 }}>Rhymeworks</span>
         </>
       )}

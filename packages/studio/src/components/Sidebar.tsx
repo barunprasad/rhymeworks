@@ -19,7 +19,7 @@ export function Sidebar({ route }: { route: string[] }) {
   return (
     <nav className="nav" aria-label="Studio">
       <div className="col" style={{ gap: 12, padding: "4px 4px 16px" }}>
-        <div className="row" style={{ padding: "0 4px" }}><Logo /><span className="brand" style={{ fontSize: 21 }}>Rhymeworks</span></div>
+        <div className="row" style={{ padding: "0 4px", gap: 12 }}><Logo size={52} /><span className="brand" style={{ fontSize: 23 }}>Rhymeworks</span></div>
         {project && (
           <button className="project" aria-label="Current project">
             {project.icon && <img src={project.icon} alt="" style={{ width: 28, height: 28, borderRadius: "50%" }} />}
