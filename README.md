@@ -77,6 +77,12 @@ You upload to YouTube yourself; Rhymeworks never touches your channel.
 
 The studio runs in your browser and on your phone. Every picture below is a real episode.
 
+<img src="docs/media/studio-home.jpg" alt="Home: a box for a new song idea, shortcuts for a song from lyrics, a finished song, a new character, world or voice style, and the episode to continue">
+<sub><b>Home.</b> Start a new song from an idea, or continue where you left off. This is the example episode, <i>Little Red Kite</i>.</sub>
+
+<img src="docs/media/studio-library.jpg" alt="The library: characters Tara and Biscuit, a hilltop world and a kite prop, with filters and a detail panel showing where the hilltop is used">
+<sub><b>Library.</b> Characters, places and props, made from a description and reused across episodes; each shows where it is used.</sub>
+
 <img src="docs/media/studio-episode.jpg" alt="The episode page: the steps from song to upload pack across the top, the finished film in a player, and the Director panel on the right with a change made in plain words">
 <sub><b>Episode.</b> Where the episode is, the finished film, and the Director: ask for a change in plain words and apply it when you like it.</sub>
 
@@ -160,6 +166,13 @@ npm run studio          # opens the studio at http://127.0.0.1:5173 (Ctrl-C stop
 Once everything is downloaded the models are loaded offline; Rhymeworks never needs the internet again until you update.
 
 ## Your first episode
+
+**Try the example first.** A new content folder comes with a small example: Tara (a little girl in a yellow
+raincoat), Biscuit the puppy, a red kite, a hilltop, and the four-line episode *Little Red Kite* with every shot
+already written. Open it, make the song, then keyframes and clips: about an hour from nothing to a finished 23-second
+film, and the quickest way to see every step. The pictures in [A look at the studio](#a-look-at-the-studio) show it.
+
+To make your own:
 
 1. **Start the studio**: `npm run studio`. The first start creates your [content folder](#your-content-folder) at `~/Rhymeworks`.
 2. **Make your cast** (Library → New character / prop / scene). Describe a character in plain words ("a curious

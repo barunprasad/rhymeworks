@@ -217,7 +217,7 @@ function buildNodes(d: EpisodeDetail): FlowNode[] {
     node("06", "Upload pack", {
       gate: true, kind: running("package") || running("upload") ? "running" : published ? "done" : d.output ? "you" : "wait",
       state: published ? "Published" : running("package") || running("upload") ? "Running" : d.output ? "Ready to upload" : "Waiting",
-      detail: "1080p file with the 4 s Gaana Gaadi intro, thumbnail, title, description, tags and the YouTube checklist.",
+      detail: "1080p file with your channel intro (if you have one), thumbnail, title, description, tags and the YouTube checklist.",
       action: d.output || published ? { label: published ? "Open upload pack" : "Open upload pack →", to: href("episodes", d.slug, "upload") } : undefined,
     }),
   ];

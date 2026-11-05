@@ -1,0 +1,58 @@
+# Little Red Kite: the example episode. Open it in the studio, make the song (Song step), then keyframes and clips.
+# Safe to edit by hand. Tokens: {tara} {biscuit} {red_kite} … (assets/registry.toml), {name} ([vars]), {keep:<prop>} in motion prompts.
+
+[episode]
+title = "Little Red Kite"
+lang = "en"
+output = "little_red_kite_en.mp4"
+
+[render]                             # defaults: 1280×720, seed 7
+
+[song]
+audio = "song/master_en.wav"         # made in the Song step
+vocals = "song/vox_en.wav"
+line_seconds = 4.137931
+seconds = 23.0                     # end the film after the last line (the music fades out)
+bpm = 116
+voice = "nursery_bright"
+
+[vars]                               # reusable prompt text: name = "…" → {name}
+
+[[shot]]
+id = "s00"
+lyric = "Up goes my little red kite,"
+seed = 100
+scene = "kite_hill"
+sing = true
+feel = "pure joy"
+key = "Medium close-up on the hilltop: {tara} sings joyfully with her mouth open, holding a thin white kite string in one hand, and {red_kite} rises into the blue sky behind her on the right. Exactly one girl. Alone in the frame."
+motion = "A cheerful little girl sings a happy nursery rhyme, her lips clearly singing the words in sync, holding the kite string and glancing up at the red kite rising into the sky behind her; the camera holds still"
+
+[[shot]]
+id = "s01"
+lyric = "dancing high in the morning light."
+seed = 101
+scene = "kite_hill"
+feel = "wonder"
+key = "Low-angle wide shot looking up at {red_kite} flying high in the bright blue morning sky among big soft white clouds, its tail of blue bows streaming; far below in the bottom left corner {tara} holds the long white string, small in the frame. Exactly one girl."
+motion = "The red diamond kite swoops and dances high in the morning sky, its tail of little blue bows fluttering in the wind, while the little girl far below gently tugs the string; sunlight glints; {keep:red_kite}; the camera holds still"
+
+[[shot]]
+id = "s02"
+lyric = "Biscuit runs and jumps to play,"
+seed = 102
+scene = "kite_hill"
+end = { seed = 1122, key = "Same hilltop meadow: {biscuit} leaps playfully among the flowers on the RIGHT side of the frame, and in the background in the MIDDLE {tara} holds the string of {red_kite}, which flies in the sky above her. Only one girl and only one puppy in the image, each once, both the same size as before." }
+feel = "playful delight"
+key = "Wide shot of the hilltop meadow: on the LEFT side of the frame {biscuit} runs through the wild flowers with its ears flying, and in the background in the MIDDLE {tara} holds the kite string and laughs. Exactly one puppy and one girl, each once."
+motion = "The fluffy brown puppy runs from the left of the frame to the right through the wild flowers and leaps playfully into the air, ears flapping, while the girl stays in the background laughing; the camera holds still"
+
+[[shot]]
+id = "s03"
+lyric = "the wind will carry us away!"
+seed = 1033
+scene = "kite_hill"
+end = { seed = 1103, key = "Same hilltop: {tara} and {biscuit} have run to the RIGHT side of the frame, {tara} laughing with one arm raised holding the string, {red_kite} high in the sky above them. Exactly one girl and one puppy." }
+feel = "carefree happiness"
+key = "Wide shot of the hilltop: on the LEFT side of the frame {tara} runs holding the kite string with {biscuit} bounding beside her, and {red_kite} flies high above them in the sky. Only one girl and only one puppy in the image, each once."
+motion = "The little girl runs from the left of the frame to the right across the hilltop with the kite string in one hand, the puppy bounding beside her, the red kite soaring above them in the wind and her raincoat flapping; the camera holds still"

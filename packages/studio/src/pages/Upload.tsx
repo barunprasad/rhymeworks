@@ -71,7 +71,7 @@ export function UploadPage({ slug }: { slug: string }) {
         <div className="card pad col" style={{ gap: 10, borderColor: "var(--gate-line)" }}>
           <b>Still to make: {missing.join(", ")}</b>
           <span className="muted small" style={{ lineHeight: 1.45 }}>
-            {d.episode_ready ? "The 1080p file adds the 4 s Gaana Gaadi intro (CPU, a few minutes). The text and thumbnails come from the local writer model and your keyframes (about a minute)."
+            {d.episode_ready ? "The 1080p file adds your channel intro if you have one (CPU, a few minutes). The text and thumbnails come from the local writer model and your keyframes (about a minute)."
               : "Assemble the episode first (episode page, step 05)."}
           </span>
           <button className="btn btn-go" style={{ alignSelf: "flex-start" }} disabled={busy || !d.episode_ready} onClick={makeAll}>Make {missing.join(" + ")}</button>

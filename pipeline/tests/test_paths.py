@@ -1,4 +1,4 @@
-"""Content folder: a fresh one is created from templates/home and is usable; migrate never targets the repo."""
+"""Content folder: a fresh one is created from templates/home (with the example episode) and is usable; migrate never targets the repo."""
 import os
 import subprocess
 import sys
@@ -13,7 +13,10 @@ from kidzone import paths, pixar
 paths.ensure_home()
 assert paths.HOME_SOURCE == "RHYMEWORKS_HOME", paths.HOME_SOURCE
 assert paths.REGISTRY.exists() and paths.PROJECTS.exists() and paths.EPISODES.is_dir()
-assert pixar._registry() == {"cast": {}, "props": {}, "scenes": {}}
+reg = pixar._registry()   # the example: Tara, Biscuit, the red kite, the hilltop
+assert set(reg["cast"]) == {"tara", "biscuit"} and set(reg["props"]) == {"red_kite"} and set(reg["scenes"]) == {"kite_hill"}
+ep = pixar.load(paths.find_spec("little-red-kite"))   # the example episode plans without a song yet
+assert [s.id for s in ep.shots] == ["s00", "s01", "s02", "s03"] and all(s.key.images[1:] for s in ep.shots)
 print(paths.HOME)
 """
 

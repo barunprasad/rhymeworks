@@ -193,7 +193,7 @@ function ShotEditor({ s, list, index, draft, dirty, stale, slug, onDraft, onSave
       <label className="col" style={{ gap: 6 }}>
         <span className="label">KEYFRAME · WHO IS WHERE</span>
         <textarea ref={keyRef} className="textarea" rows={4} value={draft.key} onFocus={() => setFocus("key")} onChange={(e) => set({ key: e.target.value })}
-          placeholder="{Gopu} and {minu} run across the meadow towards the big tree, laughing. Medium-wide shot." style={{ lineHeight: 1.45, resize: "vertical" }} />
+          placeholder="{Tara} and {biscuit} run across the hilltop towards the big tree, laughing. Medium-wide shot." style={{ lineHeight: 1.45, resize: "vertical" }} />
       </label>
       <div className="col" style={{ gap: 6 }}>
         <span className="faint small">Tap to insert into the {focus === "key" ? "keyframe" : "motion"} prompt{focus === "motion" ? " (props keep their shape)" : ""}</span>

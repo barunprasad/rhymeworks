@@ -54,7 +54,7 @@ export function NewAssetPage({ kind }: { kind: AssetKind }) {
           <textarea className="textarea" rows={6} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={PLACEHOLDER[kind][1]} style={{ lineHeight: 1.5, resize: "vertical" }} />
           <span className="faint small">
             {kind === "scenes" ? "Describe an empty place: no characters (they are added per shot). Wide, with open space in front."
-              : "Colours, shape, clothes and one or two details that make it recognisable. The studio adds the Pixar style that matches Gopu and Minu."}
+              : "Colours, shape, clothes and one or two details that make it recognisable. The studio adds the Pixar style that matches the rest of your cast."}
           </span>
         </label>
         {kind === "cast" && (

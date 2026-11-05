@@ -105,7 +105,7 @@ function Ask({ episodes }: { episodes: EpisodeSummary[] }) {
         <label htmlFor="ask" className="label">{target ? "WHAT SHOULD CHANGE IN THIS EPISODE" : "A NEW SONG IDEA"}</label>
         <textarea id="ask" rows={3} value={text} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
-          placeholder={target ? "Less singing in the chorus, and bring the bus in before the boat" : "A Hindi lullaby about the moon; Minu falls asleep on the bus home"} />
+          placeholder={target ? "Less singing in the chorus, and bring the kite in earlier" : "A Hindi lullaby about the moon, sung to a sleepy little puppy"} />
         <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
           <div className="chips" role="group" aria-label="This is for" style={{ margin: 0, padding: 0, flex: 1 }}>
             <button type="button" className="chip-btn" aria-pressed={!target} onClick={() => setTarget("")}>New song</button>

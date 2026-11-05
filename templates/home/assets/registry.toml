@@ -13,8 +13,26 @@
 # ---------- cast ----------
 [cast]
 
+# The example cast (episodes/little-red-kite). Keep them, change them, or delete them.
+[cast.tara]
+file = "cast/tara.jpg"
+ref = "the little girl in the yellow raincoat"
+style = "The girl in the yellow raincoat has curly black hair in two puffs and little red boots."
+person = true
+
+[cast.biscuit]
+file = "cast/biscuit.jpg"
+ref = "the fluffy brown puppy with the blue collar"
+style = "The puppy keeps its floppy ears, white chest patch and blue collar."
+
 # ---------- props ----------
 [props]
 
+[props.red_kite]
+file = "props/red_kite.jpg"
+ref = "the red diamond kite with the tail of blue bows"
+keep = "The kite keeps its exact red diamond shape and its single tail of little blue bows"
+
 # ---------- scenes (always the first image of a keyframe) ----------
 [scenes]
+kite_hill = "scenes/kite_hill.jpg"
