@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/rhymeworks-icon.png" width="128" height="128" alt="Rhymeworks logo: a silver camera with a golden gramophone horn, colourful music notes pouring out, on a teal tile">
+  <img src="docs/media/rhymeworks-icon.png" width="240" height="240" alt="Rhymeworks logo: a silver camera with a golden gramophone horn, colourful music notes pouring out, on a teal tile">
 </p>
 
 <h1 align="center">Rhymeworks</h1>
