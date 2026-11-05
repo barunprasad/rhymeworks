@@ -245,6 +245,16 @@ def slug_ok(slug: str) -> bool:
     return bool(re.fullmatch(r"[a-z0-9][a-z0-9-]{1,60}", slug))
 
 
+def _token_hint() -> str:
+    """A few of your own registry ids as examples for the episode header."""
+    try:
+        reg = pixar._registry()
+        ids = [*reg.get("cast", {}), *reg.get("props", {})][:4]
+    except Exception:
+        ids = []
+    return " ".join(f"{{{i}}}" for i in ids) + " …" if ids else "{your_character}"
+
+
 def new_episode(ep_dir: Path, title: str, lang: str, lines: list[str], line_seconds: float, project: str, scene: str,
                 lyrics_text: str = "", bpm: int | None = None) -> Path:
     """episodes/<slug>/episode.toml with one (empty) shot per lyric line. The song comes later (song/master_<lang>.wav)."""
@@ -253,7 +263,7 @@ def new_episode(ep_dir: Path, title: str, lang: str, lines: list[str], line_seco
     stem = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")[:40] or ep_dir.name.replace("-", "_")
     head = [
         f"# {title}: Pixar-style episode spec (made in the Rhymeworks studio; safe to edit by hand).",
-        "# Tokens: {gopu} {minu} {bus} … (assets/registry.toml), {name} ([vars]), {keep:bus} in motion prompts.",
+        f"# Tokens: {_token_hint()} (assets/registry.toml), {{name}} ([vars]), {{keep:<prop>}} in motion prompts.",
         "",
         "[episode]",
         f"title = {toml_value(title)}",
@@ -269,8 +279,7 @@ def new_episode(ep_dir: Path, title: str, lang: str, lines: list[str], line_seco
         f"line_seconds = {line_seconds!r}",
         *([f"bpm = {int(bpm)}"] if bpm else []),
         "",
-        "[vars]",
-        'sit = "sitting properly on the seat cushion like a child on a chair, knees at the front edge of the seat, lower legs hanging down"',
+        "[vars]                               # reusable prompt text: name = \"…\" → {name}",
         "",
     ]
     blocks = [_render_block(f"s{i:02d}", {"lyric": ln.strip() or None, "seed": 100 + i, "scene": scene, "key": "", "motion": ""})

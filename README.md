@@ -334,7 +334,7 @@ end = { seed = 1001, key = "Same meadow: {asha} has reached the RIGHT side of th
 | `title`, `lang`, `output` | `[episode]` | Name, language (`en` / `hi`), file name of the assembled film |
 | `project`, `playlist`, `status` | `[episode]` | Channel id, YouTube playlist, `"published"` once it is out (counts as approved) |
 | `width`, `height`, `fps`, `seed` | `[render]` | Defaults 1280×720 at 24 fps, seed 7 |
-| `audio`, `vocals`, `line_seconds`, `seconds`, `lipsync_lead` | `[song]` | The mastered song, isolated vocal, seconds per lyric line, total length (default: the song's), lip-sync offset (0.167 s) |
+| `audio`, `vocals`, `line_seconds`, `seconds`, `lipsync_lead` | `[song]` | The mastered song, isolated vocal, seconds per lyric line, total length (default: the song's; shorter ends the film early with the music fading out), lip-sync offset (0.167 s) |
 | `keyframe`, `clip`, `no_people` | `[style]` | Override the default style text |
 | any name | `[vars]` | Reusable text: `{sit}` in a prompt becomes its value |
 | `id`, `seed` | `[[shot]]` | Shot id (`s00`, `s01` …) and keyframe seed |

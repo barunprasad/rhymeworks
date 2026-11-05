@@ -294,8 +294,10 @@ def assemble(ep: Episode, dry=False) -> Path:
     (seg / "list.txt").write_text("\n".join(lines) + "\n")
     video = seg / "video_only.mp4"
     _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(seg / "list.txt"), "-c", "copy", str(video)], dry)
+    end = total / ep.fps   # [song] seconds shorter than the song: fade the music out instead of cutting it off
+    fade = ["-af", f"afade=t=out:st={max(0, end - 1.5):.3f}:d=1.5"] if ep.spec["song"].get("seconds") else []
     _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video), "-i", str(ep.song), "-map", "0:v", "-map", "1:a", "-c:v", "copy",
-          "-c:a", "aac", "-b:a", "192k", "-shortest", str(ep.output)], dry)
+          *fade, "-c:a", "aac", "-b:a", "192k", "-shortest", str(ep.output)], dry)
     if not dry:
         for p in seg.iterdir():
             p.unlink()
