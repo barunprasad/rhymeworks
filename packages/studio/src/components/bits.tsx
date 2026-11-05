@@ -2,13 +2,8 @@ import type { ReactNode } from "react";
 import type { JobStatus, ReviewStatus } from "../api";
 
 export function Logo({ size = 32 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="9" fill="#19C6C0" />
-      <path d="M13 22V10l9-2v12" fill="none" stroke="#062423" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="10.5" cy="22" r="2.6" fill="#062423" /><circle cx="19.5" cy="20" r="2.6" fill="#062423" />
-    </svg>
-  );
+  // The Rhymeworks mark: a camera with a gramophone horn, music pouring out (public/logo-128.png).
+  return <img src="/logo-128.png" width={size} height={size} alt="" aria-hidden="true" style={{ display: "block", borderRadius: size * 0.19 }} />;
 }
 
 const reviewPill: Record<ReviewStatus, [string, string]> = {

@@ -1,6 +1,10 @@
-# Rhymeworks
+<p align="center">
+  <img src="docs/media/rhymeworks-icon.png" width="128" height="128" alt="Rhymeworks logo: a silver camera with a golden gramophone horn, colourful music notes pouring out, on a teal tile">
+</p>
 
-**Turn a song idea into an original, animated kids' song video, entirely on your own Mac.**
+<h1 align="center">Rhymeworks</h1>
+
+<p align="center"><b>Turn a song idea into an original, animated kids' song video, entirely on your own Mac.</b></p>
 
 You write a title and a few lines of lyrics. Rhymeworks makes the song, plans the shots, draws a keyframe for every
 line, animates each one into a moving clip, cuts it all to the music and hands you a finished 1080p film with
