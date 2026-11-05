@@ -1,0 +1,18 @@
+# Test library (paths relative to assets/). Header comments must survive a save.
+
+# ---------- cast ----------
+[cast.asha]
+file = "cast/asha.png"
+ref = "the girl in the yellow frock"
+style = "The girl in the yellow frock has two short braids."
+person = true
+
+# ---------- props ----------
+[props.cart]
+file = "props/cart.png"
+ref = "the little red wooden cart"
+keep = "The cart keeps its exact shape and colours"
+
+# ---------- scenes (always the first image of a keyframe) ----------
+[scenes]
+meadow = "scenes/meadow.png"

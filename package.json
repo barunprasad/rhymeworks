@@ -1,0 +1,14 @@
+{
+  "name": "rhymeworks",
+  "private": true,
+  "description": "Rhymeworks: a local-first studio that turns a song idea into an original kids' song video on a Mac",
+  "scripts": {
+    "studio": "node scripts/studio.mjs",
+    "studio:lan": "LAN=1 node scripts/studio.mjs",
+    "setup": "zsh scripts/setup-engines.sh",
+    "setup:engines": "zsh scripts/setup-engines.sh",
+    "doctor": "zsh scripts/setup-engines.sh --check",
+    "test": "uv run --project pipeline --with pytest --with httpx pytest -q pipeline/tests && npm --prefix packages/studio run typecheck",
+    "build": "npm --prefix packages/studio run build"
+  }
+}

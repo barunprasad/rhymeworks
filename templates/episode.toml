@@ -1,0 +1,58 @@
+# NEW EPISODE TEMPLATE: copy this file to <content folder>/episodes/<slug>/episode.toml and fill it in
+# (or use "New episode" in the studio, which writes it for you).
+#
+#   uv run --project pipeline kidzone pixar episodes/<slug>/episode.toml --plan              # check prompts/timing
+#   uv run --project pipeline kidzone pixar episodes/<slug>/episode.toml --phase keys        # → keys/contact.jpg  (review)
+#   uv run --project pipeline kidzone pixar episodes/<slug>/episode.toml --phase keys --redo s03   # redo one key
+#   uv run --project pipeline kidzone pixar episodes/<slug>/episode.toml --phase clips       # → clips/contact.jpg (review)
+#   uv run --project pipeline kidzone pixar episodes/<slug>/episode.toml --phase assemble    # → <output>
+#   uv run --project pipeline kidzone pixar episodes/<slug>/episode.toml --phase package     # → upload/<stem>_1080p.mp4 (with intro)
+#
+# Tokens in prompts: {id} for anything in your assets/registry.toml (this example uses {gopu}, {minu}; use your own ids).
+# {Gopu} capitalises. {id|custom words} keeps the
+# image but uses your words. {name} = a [vars] entry. In motion prompts, {keep:bus} = "the bus keeps its exact shape…".
+# Rules: one shot = one lyric line; only name the characters that are in the shot; keep vehicles mid-distance;
+# seated kids → end = "same"; sing = true for lip-sync shots (needs [song] vocals).
+
+[episode]
+title = "Song Title"
+lang = "en"                          # en | hi
+output = "song_title_en.mp4"
+
+[render]                             # defaults: 1280×720, seed 7 (the agreed quality standard)
+# width = 1280
+# height = 720
+# seed = 7
+
+[song]
+audio = "song/master_en.wav"         # mastered song (−14 LUFS)
+vocals = "song/vox_en.wav"           # Spleeter-isolated vocal of the chosen take (for sing = true shots)
+line_seconds = 4.137931              # one shot per lyric line (2 bars at 116 bpm = 4.137931 s)
+# seconds = 76.48                    # optional; default = length of `audio`
+
+[style]
+# keyframe = "…"                     # optional; default keeps looks consistent and forbids extra characters
+# clip = "3D animated Pixar-style movie scene, smooth lively animation"
+
+[vars]
+sit = "sitting properly on the seat cushion like a child on a chair, knees at the front edge of the seat, lower legs hanging down"
+
+[[shot]]
+id = "s00"
+seed = 100
+scene = "meadow"                     # a key of [scenes] in assets/registry.toml
+key = "{Gopu} and {minu} run across the meadow towards the big tree, laughing. Medium-wide shot."
+motion = "The boy in the orange kurta and the girl in the pink lehenga run from the left of the frame to the big tree on the right, each moving differently; the camera holds still"
+end = { seed = 1001, key = "Same meadow: {Gopu} and {minu} have reached the big tree on the RIGHT side of the frame, laughing." }   # travel = a different end key, still camera
+
+[[shot]]
+id = "s01"
+seed = 101
+scene = "meadow"
+sing = true
+key = "Medium close-up: {minu} stands in the meadow singing joyfully with her mouth open. Alone in the frame."
+motion = "A cute Indian girl sings a happy nursery rhyme, her lips clearly singing the words in sync, swaying to the beat"
+# end = "same"                       # pin pose (start = end key)
+# end = { seed = 102, key = "…" }    # or a separate end keyframe (<id>_b.png)
+# lines = 2                          # shot spans 2 lyric lines
+# frames = 105                       # override (default: computed from the slot length, 8k+1)

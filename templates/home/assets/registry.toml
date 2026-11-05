@@ -1,0 +1,20 @@
+# Your characters, props and places (paths relative to this assets/ folder). Add them from the studio's Library
+# ("New character / prop / scene") or by hand.
+# In episode prompts write {id} (e.g. {asha}, {bus}); the engine expands it to `ref` + "(second image)" etc. and
+# attaches the image. `style` is added to the keyframe prompt whenever the character is in the shot; `alone` when
+# they are the only person in it. person = counts as a human. A prop's `keep` text goes into a clip prompt with {keep:id}.
+#
+# [cast.asha]
+# file = "cast/asha.png"
+# ref = "the girl in the yellow frock"
+# style = "The girl in the yellow frock has two short braids."
+# person = true
+
+# ---------- cast ----------
+[cast]
+
+# ---------- props ----------
+[props]
+
+# ---------- scenes (always the first image of a keyframe) ----------
+[scenes]

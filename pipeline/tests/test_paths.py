@@ -1,0 +1,36 @@
+"""Content folder: a fresh one is created from templates/home and is usable; migrate never targets the repo."""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from kidzone import paths
+
+CHECK = """
+from kidzone import paths, pixar
+paths.ensure_home()
+assert paths.HOME_SOURCE == "RHYMEWORKS_HOME", paths.HOME_SOURCE
+assert paths.REGISTRY.exists() and paths.PROJECTS.exists() and paths.EPISODES.is_dir()
+assert pixar._registry() == {"cast": {}, "props": {}, "scenes": {}}
+print(paths.HOME)
+"""
+
+
+def test_fresh_content_folder(tmp_path):
+    home = tmp_path / "Rhymeworks"
+    out = subprocess.run([sys.executable, "-c", CHECK], env={**os.environ, "RHYMEWORKS_HOME": str(home)},
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert Path(out.stdout.strip()) == home.resolve()
+    assert not (home / "episodes" / ".gitkeep").exists()
+
+
+def test_migrate_refuses_the_repo():
+    with pytest.raises(ValueError):
+        paths.migrate(paths.CODE / "content", dry=True)
+
+
+def test_rel_is_short():
+    assert paths.rel(paths.CODE / "pipeline" / "x.py") == "pipeline/x.py"

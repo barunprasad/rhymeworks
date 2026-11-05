@@ -1,0 +1,15 @@
+# Projects (channels) in the Rhymeworks studio. Episodes join one with [episode] project = "<id>";
+# an episode that doesn't say belongs to the first project below.
+[project.my-channel]
+name = "My channel"                              # also added to every upload's tags
+tagline = "Songs for kids"
+# icon = "assets/brand/final/yt_icon_800.png"    # optional, also used on thumbnails
+languages = ["en"]
+
+# The closing line of every upload description, per language (default: "Subscribe to <name> for new songs!")
+# [project.my-channel.subscribe]
+# en = "Subscribe to My channel for a new song every week!"
+
+# Playlist suggested in the upload checklist, per language (default: English Rhymes / हिंदी बालगीत)
+# [project.my-channel.playlists]
+# en = "English Rhymes"

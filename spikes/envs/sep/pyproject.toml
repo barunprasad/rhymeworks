@@ -1,0 +1,12 @@
+[project]
+name = "kz-sep"
+version = "0.1.0"
+description = "Spleeter 2-stem vocal separation (used for lip-sync and song mastering)"
+requires-python = ">=3.10,<3.11"
+dependencies = ["spleeter==2.4.2"]
+
+[tool.uv]
+# spleeter 2.4.2 pins tensorflow 2.12, which has no Apple Silicon wheel; 2.15 works (tested on M2 Max).
+override-dependencies = ["tensorflow==2.15.1", "numpy==1.26.4", "tensorflow-io-gcs-filesystem==0.37.1",
+  "httpx==0.28.1", "typer==0.27.3", "anyio==4.15.1", "google-auth==2.62.0"]   # the versions in the tested env
+required-environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

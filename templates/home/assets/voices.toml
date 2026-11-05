@@ -1,0 +1,20 @@
+# Voice styles: saved singer + music recipes for ACE-Step. caption = exactly what the music model receives.
+# status = draft | approved. sample = assets/voices/<id>.wav ("New sample" in the studio, or `kidzone voice <id>`).
+
+[voice.nursery_bright]
+name = "Nursery bright (English)"
+desc = "Bright Indian-flavoured kids pop with a sweet girl lead and chorus."
+langs = ["en"]
+bpm = [110, 120]
+mood = "Bouncy"
+status = "approved"
+caption = "cheerful children's nursery rhyme, bright Indian-flavoured kids pop, ukulele, glockenspiel, hand claps, light tabla and dholak groove, bansuri flute fills, sweet young female lead singer with a happy children's chorus, clear English diction, bouncy and playful"
+
+[voice.desi_balgeet]
+name = "Desi balgeet (Hindi)"
+desc = "Hindi nursery sound: dholak, harmonium, sitar plucks."
+langs = ["hi"]
+bpm = [105, 120]
+mood = "Bouncy"
+status = "approved"
+caption = "cheerful Indian children's nursery rhyme, bright desi kids pop, dholak and tabla groove, harmonium, bansuri flute, sitar plucks, manjira and hand claps, sweet young Indian girl lead singer with a happy children's chorus, clear Hindi diction, bouncy and playful"

@@ -1,0 +1,55 @@
+# --- models, engines, environments (huge; re-downloadable) ---
+spikes/models/
+spikes/vendor/
+spikes/envs/*/.venv/
+spikes/envs/sep/pretrained_models/
+spikes/results/
+**/.venv/
+**/node_modules/
+packages/compositions/public/
+packages/compositions/out/
+
+# --- generated media (rebuilt by the scripts; keep out of git) ---
+*.mp4
+*.mov
+*.wav
+*.mp3
+*.flac
+episodes/*/keys/
+episodes/*/clips/
+episodes/*/renders/
+episodes/*/package/
+episodes/*/align/
+episodes/*/songs/
+episodes/*/song/takes/
+episodes/*/song/vox/
+episodes/*/upload/thumb_art_*.png
+assets/brand/intro/key_*.png
+assets/brand/final/_preview_*
+archive/
+
+# --- logs, caches, OS files ---
+*.log
+__pycache__/
+*.pyc
+.DS_Store
+.ruff_cache/
+.pytest_cache/
+
+# --- Rhymeworks studio working state ---
+studio/studio.db*
+studio/logs/
+studio/drafts/
+packages/studio/dist/
+episodes/*/director.json
+rhymeworks.local.toml
+packages/studio/tsconfig.tsbuildinfo
+
+# --- never in the public repo ---
+# your content lives in the content folder (see pipeline/kidzone/paths.py), not here
+/episodes/
+/assets/
+/library/
+/briefs/
+# this computer's phone-link key
+studio/lan_key
