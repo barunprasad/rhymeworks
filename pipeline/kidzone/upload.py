@@ -21,7 +21,7 @@ from .core import IMAGE_ENV, ROOT, chat_json, log
 from .paths import BRAND, BRAND_TOOLS, rel  # noqa: E402
 from . import paths  # noqa: E402
 ICON = BRAND / "final/yt_icon_800.png"
-INTRO_SECONDS = (4.0 - 0.3) if (BRAND / "intro/intro.mp4").exists() else 0.0   # intro minus the crossfade (pipeline/tools/brand/add_intro.sh)
+XFADE = 0.3   # the intro crossfades into the episode (pipeline/tools/brand/add_intro.sh)
 PLAYLISTS = {"en": "English Rhymes", "hi": "हिंदी बालगीत", "bhakti": "Bal Bhakti"}
 FILL = ["#FFC21A", "#14C3BE", "#FF4FA3"]
 
@@ -47,19 +47,26 @@ def mmss(t: float) -> str:
     return f"{t // 60:02d}:{t % 60:02d}"
 
 
-def chapters(ep: pixar.Episode, min_gap: float = 10.0) -> list[tuple[float, str]]:
-    """YouTube chapters: first at 00:00, each ≥ 10 s long. A new chapter starts at a lyric line that differs from the last chapter's."""
-    out: list[tuple[float, str]] = [(0.0, "Gaana Gaadi!")]
+def intro_seconds(ep: pixar.Episode) -> float:
+    """How much the project's intro clip shifts everything in the intro version (its length minus the crossfade)."""
+    clip = pixar.project_intro(ep)
+    return max(0.0, pixar._probe_seconds(clip) - XFADE) if clip else 0.0
+
+
+def chapters(ep: pixar.Episode, min_gap: float = 10.0, offset: float = 0.0, first: str | None = None) -> list[tuple[float, str]]:
+    """YouTube chapters: first at 00:00, each ≥ 10 s long. A new chapter starts at a lyric line that differs from the last chapter's.
+    offset = intro length for the version that opens with the intro (its first chapter is then the channel's name)."""
+    out: list[tuple[float, str]] = [(0.0, first or ep.spec["episode"]["title"])]
     lyr = {s["id"]: (s.get("lyric") or "").strip() for s in ep.spec["shot"]}
     seen: set[str] = set()
     for s in ep.shots:
         line = lyr.get(s.id, "")
-        t = s.start + INTRO_SECONDS
+        t = s.start + offset
         if not line or line in seen or t - out[-1][0] < min_gap:
             continue
         seen.add(line)
         out.append((t, line.rstrip(",.;")))
-    end = ep.shots[-1].start + ep.shots[-1].dur + INTRO_SECONDS
+    end = ep.shots[-1].start + ep.shots[-1].dur + offset
     if len(out) > 1 and end - out[-1][0] < min_gap:
         out.pop()
     return out
@@ -73,6 +80,20 @@ def lyrics_block(ep: pixar.Episode) -> str:
             lines.append(ln)
         prev = ln
     return "\n".join(lines)
+
+
+CHAPTER_BLOCK = re.compile(r"(?:^\d{2}:\d{2} [^\n]*\n?)+", re.M)
+
+
+def description_for(ep: pixar.Episode, description: str, with_intro: bool) -> str:
+    """The description with chapter times for the chosen file: the original, or the one that opens with the intro."""
+    if with_intro:
+        proj = paths.projects().get(ep.spec["episode"].get("project") or paths.default_project(), {})
+        chap = chapters(ep, offset=intro_seconds(ep), first=f"{proj.get('name') or 'Intro'}!")
+    else:
+        chap = chapters(ep)
+    block = "\n".join(f"{mmss(t)} {name}" for t, name in chap) + "\n"
+    return CHAPTER_BLOCK.sub(lambda m: block if m.group(0).endswith("\n") else block.rstrip("\n"), description, count=1)
 
 
 def parse_text(md: str) -> dict:
@@ -100,9 +121,9 @@ def write_text(ep: pixar.Episode, force: bool = False, chat=chat_json) -> Path:
     user = f"Song: {e['title']} (language: {lang}).\nCharacters: {who}.\nPlaces: {scenes}.\nLyrics:\n{lyr[:1500]}"
     log("upload", "asking the writer model for title, intro and tags …")
     d = chat(WRITER, user, SCHEMA, temperature=0.5)
+    proj = paths.projects().get(e.get("project") or paths.default_project(), {})
     playlist = e.get("playlist") or proj.get("playlists", {}).get(lang) or PLAYLISTS.get(lang, "English Rhymes")
     chap = "\n".join(f"{mmss(t)} {name}" for t, name in chapters(ep))
-    proj = paths.projects().get(e.get("project") or paths.default_project(), {})
     channel = proj.get("name", "")
     tags = ", ".join(dict.fromkeys([t.strip().lower() for t in d["tags"] if t.strip()] + ([channel.lower()] if channel else [])))
     hashtags = " ".join("#" + re.sub(r"\W+", "", h.lstrip("#")) for h in d["hashtags"][:3] if re.sub(r"\W+", "", h))

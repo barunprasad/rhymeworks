@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, useLoad } from "../api";
 import { go, href } from "../router";
 import { ErrorNote } from "../components/bits";
@@ -6,10 +6,14 @@ import { ALL, useProject } from "../components/Project";
 
 const slugify = (t: string) => t.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 
-/** New episode: title, language, lyrics (one line = one shot) and tempo → episodes/<slug>/episode.toml. */
-export function NewEpisodePage() {
-  const { current } = useProject();
+/** New episode: title, language, lyrics (one line = one shot) and tempo → episodes/<slug>/episode.toml.
+ *  "Start from" another episode carries over its look ([style], [vars]), singing voice, tempo and, if wanted, its shots + keyframes. */
+export function NewEpisodePage({ from }: { from?: string }) {
+  const { current, inProject } = useProject();
   const lib = useLoad(api.library, []);
+  const eps = useLoad(api.episodes, []);
+  const [source, setSource] = useState(from ?? "");
+  const [copyShots, setCopyShots] = useState(true);
   const [title, setTitle] = useState(() => {   // an idea typed on the home page arrives here once
     try { const i = sessionStorage.getItem("rw.idea") ?? ""; sessionStorage.removeItem("rw.idea"); return i.slice(0, 80); } catch { return ""; }
   });
@@ -23,6 +27,22 @@ export function NewEpisodePage() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {   // picking an episode to start from fills in its language, tempo, lyrics and first scene
+    if (!source) return;
+    let live = true;
+    Promise.all([api.song(source), api.episode(source)]).then(([sg, ep]) => {
+      if (!live) return;
+      setLang(sg.lang === "en" ? "en" : "hi");
+      setBpm(sg.bpm);
+      setBarsPerLine([1, 2, 4].includes(sg.bars_per_line) ? sg.bars_per_line : 2);
+      setLyrics((l) => l.trim() ? l : sg.lyrics);
+      if (ep.shots[0]?.scene) setScene(ep.shots[0].scene);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [source]);
+  const sources = (eps.data ?? []).filter((e) => inProject(e) || e.slug === source);
+  const src = sources.find((e) => e.slug === source);
+
   const autoSlug = slugify(title);
   const theSlug = slug || autoSlug;
   const lines = lyrics.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("["));
@@ -32,7 +52,8 @@ export function NewEpisodePage() {
   const create = async () => {
     setBusy(true); setErr(null);
     try {
-      const e = await api.createEpisode({ title: title.trim(), lang, lyrics, line_seconds: Math.round(lineSeconds * 1e6) / 1e6, bpm, scene, slug: theSlug, project: current !== ALL ? current : undefined });
+      const e = await api.createEpisode({ title: title.trim(), lang, lyrics, line_seconds: Math.round(lineSeconds * 1e6) / 1e6, bpm, scene, slug: theSlug,
+        project: current !== ALL ? current : src?.project, source: source || undefined, copy_shots: !!source && copyShots });
       if (draft && lines.length) await api.run(e.slug, "draft");
       go("episodes", e.slug, "shots");
     } catch (x) { setErr((x as Error).message.replace(/^\w+ \S+: /, "")); setBusy(false); }
@@ -53,6 +74,32 @@ export function NewEpisodePage() {
             </span>
           )}
         </label>
+
+        {sources.length > 0 && (
+          <div className="col" style={{ gap: 6 }}>
+            <span className="label" id="start-from">START FROM</span>
+            <div className="scroller" role="radiogroup" aria-labelledby="start-from" style={{ gap: 8 }}>
+              {[{ slug: "", title: "Blank", poster: null as string | null, lang: undefined as string | undefined }, ...sources].map((e) => (
+                <button key={e.slug || "blank"} role="radio" aria-checked={source === e.slug} onClick={() => setSource(e.slug)} className="from-card"
+                  style={{ border: source === e.slug ? "2px solid var(--go)" : "1px solid var(--line)" }}>
+                  {e.poster ? <img src={e.poster} alt="" /> : <span className="from-blank" aria-hidden="true">+</span>}
+                  <span lang={e.lang}>{e.title}</span>
+                </button>
+              ))}
+            </div>
+            {src && (<>
+              <span className="faint small">Takes its look (style and reusable prompt text), singing voice, tempo, lyrics and first scene. Change anything below.</span>
+              <button role="switch" aria-checked={copyShots} onClick={() => setCopyShots(!copyShots)} className="row between card pad"
+                style={{ textAlign: "left", cursor: "pointer", color: "var(--text)", gap: 12, flexWrap: "nowrap" }}>
+                <span className="col" style={{ gap: 2 }}>
+                  <span style={{ fontWeight: 700 }}>Reuse its shots and keyframes</span>
+                  <span className="faint small">Line 1 gets its shot 1, line 2 its shot 2, … with the pictures already drawn: good for the same song in another language or a new verse. Extra lines start empty.</span>
+                </span>
+                <span className={`switch ${copyShots ? "on" : ""}`} aria-hidden="true" />
+              </button>
+            </>)}
+          </div>
+        )}
 
         <div className="col" style={{ gap: 6 }}>
           <span className="label" id="lang">LANGUAGE</span>
@@ -101,10 +148,10 @@ export function NewEpisodePage() {
         </div>
 
         <button role="switch" aria-checked={draft} onClick={() => setDraft(!draft)} className="row between card pad"
-          style={{ textAlign: "left", cursor: "pointer", color: "var(--text)", gap: 12 }}>
+          style={{ textAlign: "left", cursor: "pointer", color: "var(--text)", gap: 12, flexWrap: "nowrap" }}>
           <span className="col" style={{ gap: 2 }}>
             <span style={{ fontWeight: 700 }}>Draft the shots with AI</span>
-            <span className="faint small">The local writer model plans who is where and what happens for every line. You review before anything is rendered.</span>
+            <span className="faint small">The local writer model plans who is where and what happens for every {src && copyShots ? "new " : ""}line. You review before anything is rendered.</span>
           </span>
           <span className={`switch ${draft ? "on" : ""}`} aria-hidden="true" />
         </button>

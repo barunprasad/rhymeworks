@@ -256,10 +256,16 @@ def _token_hint() -> str:
 
 
 def new_episode(ep_dir: Path, title: str, lang: str, lines: list[str], line_seconds: float, project: str, scene: str,
-                lyrics_text: str = "", bpm: int | None = None) -> Path:
-    """episodes/<slug>/episode.toml with one (empty) shot per lyric line. The song comes later (song/master_<lang>.wav)."""
+                lyrics_text: str = "", bpm: int | None = None, source: Path | None = None, copy_shots: bool = False) -> Path:
+    """episodes/<slug>/episode.toml with one (empty) shot per lyric line. The song comes later (song/master_<lang>.wav).
+
+    source: start from another episode's spec: its [style] and [vars] and its singing voice come along; with copy_shots
+    its shots are reused in order (shot 1's prompts, scene and seed for the new line 1, …) together with their keyframes,
+    so only new lines need drafting and drawing."""
     if ep_dir.exists():
         raise SpecError(f"episodes/{ep_dir.name} already exists")
+    src = tomllib.loads(source.read_text()) if source else {}
+    src_song = src.get("song", {})
     stem = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")[:40] or ep_dir.name.replace("-", "_")
     head = [
         f"# {title}: Pixar-style episode spec (made in the Rhymeworks studio; safe to edit by hand).",
@@ -278,21 +284,41 @@ def new_episode(ep_dir: Path, title: str, lang: str, lines: list[str], line_seco
         f"vocals = {toml_value(f'song/vox_{lang}.wav')}           # isolated vocal for lip-sync shots",
         f"line_seconds = {line_seconds!r}",
         *([f"bpm = {int(bpm)}"] if bpm else []),
+        *[f"{k} = {toml_value(src_song[k])}" for k in ("voice", "key") if isinstance(src_song.get(k), str)],
         "",
-        "[vars]                               # reusable prompt text: name = \"…\" → {name}",
+        *([f"[style]                              # from {source.parent.name}", *(f"{k} = {toml_value(v)}" for k, v in src["style"].items()), ""]
+          if src.get("style") else []),
+        "[vars]                               # reusable prompt text: name = \"…\" → {name}"
+        + (f"  (from {source.parent.name})" if src.get("vars") else ""),
+        *(f"{k} = {toml_value(v)}" for k, v in src.get("vars", {}).items()),
         "",
     ]
-    blocks = [_render_block(f"s{i:02d}", {"lyric": ln.strip() or None, "seed": 100 + i, "scene": scene, "key": "", "motion": ""})
-              for i, ln in enumerate(lines or [""])]
+    old_shots = src.get("shot", []) if copy_shots else []
+    keep = ("seed", "scene", "sing", "end", "feel", "key", "motion")
+    shots, copied = [], []
+    for i, ln in enumerate(lines or [""]):
+        f = {"lyric": ln.strip() or None, "seed": 100 + i, "scene": scene, "key": "", "motion": ""}
+        if i < len(old_shots):
+            f.update({k: old_shots[i][k] for k in keep if old_shots[i].get(k) is not None})
+            copied.append((old_shots[i]["id"], f"s{i:02d}"))
+        shots.append(_render_block(f"s{i:02d}", f))
     ep_dir.mkdir(parents=True)
     spec = ep_dir / "episode.toml"
     try:
-        spec.write_text("\n".join(head) + "\n" + "".join(blocks).rstrip("\n") + "\n")
+        spec.write_text("\n".join(head) + "\n" + "".join(shots).rstrip("\n") + "\n")
         pixar.load(spec)
     except Exception:
         import shutil
         shutil.rmtree(ep_dir)
         raise
+    if copied:   # same prompt + seed = same picture, so the keyframes come along instead of being drawn again
+        import shutil
+        (ep_dir / "keys").mkdir(exist_ok=True)
+        for old, new in copied:
+            for end in ("a", "b"):
+                f = source.parent / "keys" / f"{old}_{end}.png"
+                if f.exists():
+                    shutil.copy2(f, ep_dir / "keys" / f"{new}_{end}.png")
     if lyrics_text.strip():   # the full lyrics with [Verse]/[Chorus] tags, for the Song step
         (ep_dir / "song").mkdir(exist_ok=True)
         (ep_dir / "song" / f"lyrics_{lang}.txt").write_text(lyrics_text.strip() + "\n")

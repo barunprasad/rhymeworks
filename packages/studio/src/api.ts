@@ -3,15 +3,15 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 
 export type ReviewStatus = "missing" | "to_review" | "approved" | "redo";
 export type Phase = "keys" | "clips" | "assemble" | "package";
-export type JobKind = Phase | "draft" | "upload" | "asset" | "song" | "master" | "import" | "voice" | "options" | "director";
+export type JobKind = Phase | "check" | "draft" | "upload" | "asset" | "song" | "master" | "import" | "voice" | "options" | "director";
 export type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
 export type WorkerState = "idle" | "running" | "paused" | "waiting_hours" | "waiting_memory";
 
 export interface Project {
-  id: string; name: string; tagline?: string; icon: string | null; icon_path?: string | null; languages?: string[];
+  id: string; name: string; tagline?: string; icon: string | null; icon_path?: string | null; languages?: string[]; intro?: string; intro_url?: string | null;
   subscribe?: Record<string, string>; playlists?: Record<string, string>;
 }
-export interface ProjectPatch { name?: string; tagline?: string; icon?: string | null; languages?: string[]; subscribe?: Record<string, string>; playlists?: Record<string, string> }
+export interface ProjectPatch { name?: string; tagline?: string; icon?: string | null; intro?: string | null; languages?: string[]; subscribe?: Record<string, string>; playlists?: Record<string, string> }
 export interface Usage { shots: number; episodes: { slug: string; title: string; shots: string[] }[] }
 export interface LibraryItem { id: string; kind: "cast" | "prop" | "scene"; token?: string; ref?: string | null; style?: string | null; person?: boolean; image: string | null; path?: string; added: number | null; used: Usage }
 export interface Library { cast: LibraryItem[]; props: LibraryItem[]; scenes: LibraryItem[] }
@@ -20,16 +20,21 @@ export interface EpisodeSummary {
   keys_to_review: number; clips_to_review: number; empty_shots: number; has_song: boolean;
   stage: string; output: string | null; film: string | null; contact: string | null; poster: string | null; updated: number | null; scenes: string[]; cast: string[];
 }
-export interface Output { url: string | null; status: ReviewStatus; note?: string | null }
+/** Auto-check hints for one keyframe or clip (pipeline/kidzone/checks.py). They never approve or reject anything.
+ *  ok = every check passed · flag = something to look at · checking = the picture check is queued · partial = not all checks have run. */
+export interface AutoCheck { state: "ok" | "flag" | "checking" | "partial" | "none"; flags: string[]; passed: string[] }
+export interface Output { url: string | null; status: ReviewStatus; note?: string | null; check?: AutoCheck }
 export interface Shot {
   id: string; start: number; dur: number; frames: number; sing: boolean; end: string | null; scene: string; seed: number;
   cast: string[]; key_prompt: string; motion: string; key: Output; clip: Output; lyric: string | null; feel: string | null; options: number;
 }
 export interface Job {
-  id: number; kind: JobKind; episode: string; args: { only?: string[] | null; redo?: string[] | null; shot?: string; n?: number; ask?: string; shots?: string[] | null }; status: JobStatus;
+  id: number; kind: JobKind; episode: string; args: { only?: string[] | null; redo?: string[] | null; shot?: string; n?: number; ask?: string; shots?: string[] | null; stage?: "keys" | "clips"; force?: boolean }; status: JobStatus;
   position: number; progress: number; message: string; log: string; created: number; started: number | null; finished: number | null;
 }
-export interface EpisodeDetail extends Omit<EpisodeSummary, "shots"> { width: number; height: number; song: string | null; shots: Shot[]; jobs: Job[] }
+/** The song goes quiet (silent) or only music plays (outro) well before the film ends: where to end it instead. */
+export interface EndingHint { kind: "silent" | "outro"; film_end: number; sound_end: number; voice_end: number | null; cut: number; drop: string[] }
+export interface EpisodeDetail extends Omit<EpisodeSummary, "shots"> { width: number; height: number; song: string | null; shots: Shot[]; jobs: Job[]; ending: EndingHint | null }
 export type EndSpec = "same" | { seed: number; key: string } | null;
 /** One [[shot]] as written in episode.toml (raw prompts with {tokens}), plus its timing and keyframe. */
 export interface ShotRow {
@@ -43,10 +48,13 @@ export interface ShotList {
   slug: string; episode: { title: string; lang?: string; status?: string }; song: { line_seconds?: number; audio?: string };
   vars: Record<string, string>; shots: ShotRow[]; tokens: TokenInfo[]; scenes: { id: string; image: string | null }[]; jobs: Job[];
 }
-export interface NewEpisodeReq { title: string; lang: "en" | "hi"; lyrics: string; line_seconds: number; bpm?: number; scene: string; slug?: string; project?: string }
+export interface NewEpisodeReq { title: string; lang: "en" | "hi"; lyrics: string; line_seconds: number; bpm?: number; scene: string; slug?: string; project?: string; source?: string; copy_shots?: boolean }
+/** One 1080p upload file: the original, or the one that opens with the project's intro. The description's chapters match it. */
+export interface UploadVideo { variant: "original" | "intro"; url: string; name: string; mb: number; old: boolean; description: string | null }
 export interface UploadPack {
   slug: string; title: string; lang: string; playlist: string; published: boolean; episode_ready: boolean;
-  video: { url: string; name: string; mb: number } | null;
+  video: UploadVideo | null; videos: UploadVideo[];
+  intro: { name: string; url: string; project?: string } | null;   // the project's intro clip, if it has one
   text: { title: string; description: string; tags: string; meta: string } | null;
   thumbs: { name: string; url: string }[]; thumbnail: string | null;
   checks: { id: string; title: string; detail: string; on: boolean }[]; jobs: Job[];
@@ -74,7 +82,7 @@ export interface DirectorProposal {
   created: string; status: "proposed" | "applied" | "discarded" | "replaced"; errors?: string[]; remake?: string[];
 }
 export interface Director { proposal: DirectorProposal | null; history: DirectorProposal[]; jobs: Job[]; result?: { applied: string[]; errors: string[]; remake: string[] } }
-export interface Settings { paused: boolean; work_hours: string; daytime_only: boolean; yield_to_ollama: boolean; worker: WorkerState }
+export interface Settings { paused: boolean; work_hours: string; daytime_only: boolean; yield_to_ollama: boolean; auto_check: boolean; worker: WorkerState }
 export interface Health { ok: boolean; worker: WorkerState; running_job: number | null; lan_url: string | null }
 export interface StudioEvent { type: string; at?: number; job?: Job; episode?: string; [k: string]: unknown }
 
@@ -99,6 +107,9 @@ export const api = {
   episodes: () => req<EpisodeSummary[]>("GET", "/api/episodes"),
   episode: (slug: string) => req<EpisodeDetail>("GET", `/api/episodes/${slug}`),
   run: (slug: string, phase: JobKind, only?: string[], redo?: string[], all = false) => req<Job>("POST", `/api/episodes/${slug}/run`, { phase, only, redo, all }),
+  check: (slug: string, stage: "keys" | "clips", force = true) => req<Job>("POST", `/api/episodes/${slug}/run`, { phase: "check", stage, force }),
+  pack: (slug: string, intro: boolean) => req<Job>("POST", `/api/episodes/${slug}/run`, { phase: "package", intro }),
+  introClips: () => req<{ path: string; url: string; seconds: number }[]>("GET", "/api/intro-clips"),
   upload: (slug: string) => req<UploadPack>("GET", `/api/episodes/${slug}/upload`),
   saveUpload: (slug: string, s: { thumbnail?: string; checks?: string[] }) => req<{ ok: boolean }>("PUT", `/api/episodes/${slug}/upload`, s),
   publish: (slug: string, published = true) => req<EpisodeSummary>("POST", `/api/episodes/${slug}/publish`, { published }),
@@ -122,6 +133,8 @@ export const api = {
   newVoice: (b: { name: string; caption: string; desc?: string; langs?: string[] }) => req<Voice[]>("POST", "/api/voices", b),
   voiceSample: (id: string) => req<Job>("POST", `/api/voices/${id}/sample`),
   createEpisode: (body: NewEpisodeReq) => req<EpisodeSummary>("POST", "/api/episodes", body),
+  setEnding: (slug: string, seconds: number) => req<{ ok: boolean; removed: string[]; job: Job | null }>("POST", `/api/episodes/${slug}/ending`, { seconds }),
+  moveEpisode: (slug: string, project: string) => req<EpisodeSummary>("PUT", `/api/episodes/${slug}/project`, { project }),
   shotlist: (slug: string) => req<ShotList>("GET", `/api/episodes/${slug}/shotlist`),
   saveShot: (slug: string, id: string, fields: ShotFields) => req<ShotRow>("PATCH", `/api/episodes/${slug}/shots/${id}`, { fields }),
   addShot: (slug: string, opts: { after?: string; copy_of?: string }) => req<ShotRow>("POST", `/api/episodes/${slug}/shots`, opts),
@@ -199,7 +212,7 @@ export const ago = (t: number | null) => {
   return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)} h ago` : `${Math.floor(s / 86400)} d ago`;
 };
 export const jobLabel: Record<JobKind, string> = {
-  keys: "Keyframes", clips: "Clips", assemble: "Assemble", package: "1080p upload file",
+  keys: "Keyframes", clips: "Clips", assemble: "Assemble", package: "1080p upload file", check: "Auto-check pictures",
   draft: "Drafting shots", upload: "Upload text + thumbnails", asset: "Drawing options",
   song: "Song takes", master: "Mastering the song", import: "Fitting the song to shots", voice: "Voice samples",
   options: "Keyframe options", director: "Director",

@@ -119,6 +119,8 @@ function SettingsForm({ p, onClose }: { p: Project; onClose: () => void }) {
   const [name, setName] = useState(p.name);
   const [tagline, setTagline] = useState(p.tagline ?? "");
   const [icon, setIcon] = useState<string | null>(p.icon_path ?? null);
+  const [intro, setIntro] = useState<string>(p.intro ?? "");
+  const clips = useLoad(api.introClips, []);
   const [langs, setLangs] = useState<string[]>(p.languages ?? ["en"]);
   const [subscribe, setSubscribe] = useState<Record<string, string>>(p.subscribe ?? {});
   const [playlists, setPlaylists] = useState<Record<string, string>>(p.playlists ?? {});
@@ -139,7 +141,7 @@ function SettingsForm({ p, onClose }: { p: Project; onClose: () => void }) {
     setBusy(true); setErr(null);
     try {
       const only = (r: Record<string, string>) => Object.fromEntries(["en", "hi"].map((l) => [l, langs.includes(l) ? (r[l] ?? "") : ""]));
-      await api.patchProject(id, { name, tagline, icon, languages: langs, subscribe: only(subscribe), playlists: only(playlists) });
+      await api.patchProject(id, { name, tagline, icon, intro: intro || null, languages: langs, subscribe: only(subscribe), playlists: only(playlists) });
       onClose();
     } catch (e) { setErr((e as Error).message.replace(/^\w+ \S+: /, "")); setBusy(false); }
   };
@@ -169,6 +171,18 @@ function SettingsForm({ p, onClose }: { p: Project; onClose: () => void }) {
             </button>
           ))}
         </div>
+
+        <label className="label" htmlFor="ps-intro">Channel intro (optional)</label>
+        <select id="ps-intro" className="select" value={intro} onChange={(e) => setIntro(e.target.value)}>
+          <option value="">None</option>
+          {intro && !(clips.data ?? []).some((c) => c.path === intro) && <option value={intro}>{intro}</option>}
+          {(clips.data ?? []).map((c) => <option key={c.path} value={c.path}>{c.path.replace(/^assets\//, "")} · {c.seconds} s</option>)}
+        </select>
+        {intro && (clips.data?.find((c) => c.path === intro)?.url ?? p.intro_url) && (
+          <video key={intro} src={clips.data?.find((c) => c.path === intro)?.url ?? p.intro_url!} muted playsInline controls preload="metadata"
+            style={{ width: "100%", maxWidth: 320, borderRadius: 10, background: "#000" }} />
+        )}
+        <span className="faint small">A short clip (videos up to 15 s in your content folder's assets). The Upload pack can then also make a version that opens with it; the original stays as it is.</span>
 
         <div className="label">Languages</div>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>

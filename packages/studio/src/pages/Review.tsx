@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, useLoad, type Shot } from "../api";
 import { go, href } from "../router";
-import { ErrorNote, ReviewPill } from "../components/bits";
+import { CheckDetails, CheckPill, ErrorNote, ReviewPill } from "../components/bits";
 import { useIsDesktop } from "../components/MobileBars";
 import { JobBar } from "./Episode";
 
@@ -22,6 +22,7 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
   const allApproved = d.shots.length > 0 && d.shots.every((s) => out(s).status === "approved");
   const sel = d.shots.find((s) => s.id === selId) ?? made.find((s) => out(s).status === "to_review") ?? made[0];
   const what = stage === "keys" ? "keyframes" : "clips";
+  const flagged = made.filter((s) => out(s).check?.state === "flag" && out(s).status === "to_review");   // decided ones keep their pill only
 
   const decide = async (s: Shot, decision: Decision, withNote = "") => {
     setErr(null);
@@ -38,6 +39,16 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
   const approveRest = async () => {
     for (const s of made.filter((x) => out(x).status === "to_review")) await api.review(slug, stage, s.id, "approved");
     ep.reload();
+  };
+  const redoFlagged = async () => {
+    setErr(null);
+    try {
+      for (const s of flagged) await api.review(slug, stage, s.id, "redo", (out(s).check?.flags ?? []).join("; ").slice(0, 200));
+      ep.reload();
+    } catch (e) { setErr((e as Error).message); }
+  };
+  const checkAgain = async () => {
+    try { await api.check(slug, stage); ep.reload(); } catch (e) { setErr((e as Error).message); }
   };
   const next = async () => {
     try { await api.run(slug, stage === "keys" ? "clips" : "assemble"); go("episodes", slug); } catch (e) { setErr((e as Error).message); }
@@ -59,12 +70,21 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
       <span style={{ width: `${made.length ? (decided / made.length) * 100 : 0}%` }} />
     </div>
   );
+  const banner = flagged.length > 0 && (
+    <div className="ac-banner" role="status">
+      <span>⚠ Auto-check: {flagged.length === 1 ? "1 shot" : `${flagged.length} shots`} to look at:{" "}
+        {flagged.map((s, i) => <span key={s.id}>{i ? ", " : ""}<button className="linkish" onClick={() => setSelId(s.id)}>{s.id}</button></span>)}
+      </span>
+      <button className="btn" style={{ marginLeft: "auto" }} onClick={redoFlagged}>Redo {flagged.length === 1 ? "it" : `all ${flagged.length}`}</button>
+    </div>
+  );
   const summary = `${decided} of ${made.length} decided${made.length < d.shots.length ? ` · ${d.shots.length - made.length} not made yet` : ""}`;
 
   const details = sel && (
     <>
       <div className="row between"><h2>{sel.id}</h2><ReviewPill s={out(sel).status} /></div>
       {out(sel).note && <div className="small" style={{ color: "var(--gate-text)" }}>Note: {out(sel).note}</div>}
+      <CheckDetails c={out(sel).check} stage={stage} onAgain={out(sel).url ? checkAgain : undefined} />
       <details className="prompt" open={desktop}>
         <summary className="label">{stage === "keys" ? "KEYFRAME PROMPT" : "MOTION PROMPT"}</summary>
         <div className="small" style={{ color: "var(--text-2)", lineHeight: 1.5, maxHeight: 220, overflow: "auto", marginTop: 6 }}>{stage === "keys" ? sel.key_prompt : sel.motion}</div>
@@ -88,6 +108,7 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
         {progress}
         <ErrorNote msg={err ?? ep.error} />
         {d.jobs.map((j) => <JobBar key={j.id} j={j} />)}
+        {banner}
         {sel && out(sel).url ? (
           <div className="viewer">
             {media(sel, true)}
@@ -102,10 +123,11 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
             const o = out(s);
             const thumb = s.key.url;   // clips use their keyframe as the thumbnail
             return (
-              <button key={s.id} onClick={() => setSelId(s.id)} disabled={!o.url} aria-label={`${s.id}, ${o.status.replace("_", " ")}`}
+              <button key={s.id} onClick={() => setSelId(s.id)} disabled={!o.url} aria-label={`${s.id}, ${o.status.replace("_", " ")}${o.check?.state === "flag" ? ", auto-check found something" : ""}`}
                 aria-current={sel?.id === s.id ? "true" : undefined} className={sel?.id === s.id ? "on" : ""}>
                 {thumb ? <img src={thumb} alt="" /> : <span />}
                 <i className={`st ${o.status}`} />
+                {o.check?.state === "flag" && <b className="warn" aria-hidden="true">⚠</b>}
               </button>
             );
           })}
@@ -138,6 +160,7 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
       <ErrorNote msg={err ?? ep.error} />
       {progress}
       {d.jobs.map((j) => <JobBar key={j.id} j={j} />)}
+      {banner}
 
       <div className="split">
         <div className="grow">
@@ -154,6 +177,7 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
                   </button>
                   <div className="col" style={{ padding: "10px 12px", gap: 8 }}>
                     <div className="row between"><b>{s.id}</b><ReviewPill s={o.status} /></div>
+                    <CheckPill c={o.check} stage={stage} />
                     {o.url && (
                       <div className="row" style={{ gap: 6 }}>
                         <button className="btn btn-soft-go" style={{ flex: 1, justifyContent: "center" }} onClick={() => decide(s, "approved")}>Approve</button>

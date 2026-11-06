@@ -43,7 +43,7 @@ export function App() {
     page = <ReviewPage slug={slug} stage={stage as "keys" | "clips"} />;
     back = { to: href("episodes", slug), label: "Back to episode", title: `Review ${stage === "keys" ? "keyframes" : "clips"}` };
   } else if (section === "episodes" && slug === "new") {
-    page = <NewEpisodePage />;
+    page = <NewEpisodePage from={sub} />;
     back = { to: href("episodes"), label: "Back to episodes", title: "New episode" };
   } else if (section === "episodes" && slug && sub === "shots") {
     page = <ShotListPage slug={slug} />;

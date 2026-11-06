@@ -5,6 +5,7 @@ every write is checked by parsing the result before it reaches disk.
 name = "My channel"
 tagline = "Songs for kids"             # optional
 icon = "assets/cast/tara.jpg"          # optional, relative to the content folder; also used on thumbnails
+intro = "assets/brand/intro/intro.mp4" # optional: the clip that opens the "with intro" upload file
 languages = ["en", "hi"]
 
 [project.<id>.subscribe]               # optional: the closing line of upload descriptions, per language
@@ -21,6 +22,7 @@ from .. import paths
 from .specedit import set_table_field
 
 LANGS = ("en", "hi")
+VIDEO = (".mp4", ".mov", ".m4v")
 EXTRA = ("subscribe", "playlists")
 
 
@@ -114,6 +116,11 @@ def update(pid: str, fields: dict) -> dict:
             if value and not (paths.HOME / value).is_file():
                 raise ProjectError(f"no picture at {value}")
             set_table_field(paths.PROJECTS, table, "icon", value)
+        elif key == "intro":
+            value = (value or "").strip() or None
+            if value and not ((paths.HOME / value).is_file() and value.lower().endswith(VIDEO)):
+                raise ProjectError(f"no video at {value}")
+            set_table_field(paths.PROJECTS, table, "intro", value)
         elif key == "languages":
             set_table_field(paths.PROJECTS, table, "languages", _langs(value or []))
         elif key in EXTRA:

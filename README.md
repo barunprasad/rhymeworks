@@ -69,7 +69,7 @@ One **episode** = one song video, usually 1–3 minutes long:
 | Shot list | One shot per lyric line (who, where, what happens, what they feel), drafted by a local writer model and fully editable | Gemma 4 (Ollama), optional |
 | Keyframes | A Pixar-style 3D picture per shot, built from *your* characters and places so they look the same in every shot | FLUX.2 klein 4B |
 | Moving clips | Each keyframe animated for the length of its line (about 4–8 s), with lip-sync on the shots you mark as singing | LTX-2.3 |
-| Film | Clips cut exactly to the song, your channel intro in front, upscaled to 1920×1080 | ffmpeg |
+| Film | Clips cut exactly to the song and upscaled to 1920×1080; optionally a second file that opens with your channel intro | ffmpeg |
 | Upload pack | Thumbnails with real lettering (Latin and Devanagari), title, description with chapters and lyrics, tags, a YouTube checklist | Gemma 4, CoreText, Pillow |
 
 You upload to YouTube yourself; Rhymeworks never touches your channel.
@@ -183,12 +183,30 @@ To make your own:
    six-year-old girl in a yellow frock with two short braids"), get 4 options, keep the one you like. Do the same for at
    least one place (a scene). Every keyframe starts from a scene image, so you need one before the first episode.
 3. **New episode**: title, language, lyrics (one line per line of the song). The writer model drafts a shot for every
-   line; edit any of them in the **Shot list**.
+   line; edit any of them in the **Shot list**. To make another episode like one you have (the same song in Hindi, a
+   new verse), choose it under **Start from**: its look, voice, tempo and lyrics come along, and optionally its shots
+   with their keyframes already drawn. Every episode page also has **New episode from this…**.
 4. **Song**: pick a voice style, make takes, listen, pick one. Rhymeworks masters it and lines the shots up with the music.
 5. **Keyframes**: queue them, then review: approve, redo, or open **Options** to draw 4 versions of a shot and pick one.
+   The [auto-check](#auto-check) has already looked at every picture and marks the ones to look at.
 6. **Clips**: queue them (this is the long part), then review the same way. **Watch** plays the episode cut to the
    song in the browser at any point: keyframes first, moving clips as they arrive.
-7. **Assemble → Package → Upload pack**: the 1080p film, thumbnails and the text to paste into YouTube.
+7. **Assemble → Upload pack**: the 1080p film, thumbnails and the text to paste into YouTube. If the song goes quiet
+   (or only music plays) long before the film ends, the episode page says so and offers to **end the film** there, with
+   the music fading out. In the Upload pack, **With … intro** makes a second file that opens with your channel's intro
+   clip (set in Project settings); the original stays as it is, and the description's chapter times follow the file you pick.
+
+### Auto-check
+
+Every keyframe and clip gets a short label in Review: **✓ Auto-check passed**, **⚠ Look at this** (with the reason),
+or **Auto-checking…**. They are hints only; you still approve.
+
+- **Movement** (every clip, instant): a clip that barely moves is marked "Barely moves (looks frozen)".
+- **Pictures** (a queued job right after each keyframes or clips run, about a minute per episode): the writer model
+  counts each character the shot should have and looks for extras and clear drawing mistakes (the same character
+  twice, an extra puppy, extra hands, melted faces, someone floating, bodies merging), in each keyframe and at the
+  start, middle and end of each clip. **Check again** re-runs it for a shot; the Queue settings can switch the automatic
+  run off. **Redo all** in the Review banner redoes every flagged shot that is still waiting, with the reason as the note.
 
 ## The studio, screen by screen
 
@@ -198,17 +216,17 @@ one shot at a time with big Approve / Redo buttons. From 900 px wide you get the
 | Screen | What it is for |
 |---|---|
 | **Home** | "What shall we make today?": start a new song, ask the Director for a change, continue where you left off, and see what needs you |
-| **Episode** | The storyboard: every shot as a picture with its lyric and place, filters (search, status, who, where), and the player. Finished episodes show the film |
+| **Episode** | The storyboard: every shot as a picture with its lyric and place, filters (search, status, who, where, auto-check), and the player. Finished episodes show the film. Also: which project it belongs to (change it to move the episode), **New episode from this…**, and a hint when the film runs on after the song |
 | **Watch** | The episode cut to the song, no GPU needed: keyframes (with a slow Ken Burns move) or the moving clips. Full screen with `F` or a double-click |
 | **Song** | Voice style, takes with scores, pick and master; or import a song you already have |
 | **Shot list** | Edit each shot: place, keyframe prompt, motion, feeling, singing or not, length. Tap a character to insert it |
-| **Review** | Keyframes and clips, one at a time: Approve, Redo (new seed, just that shot), or Options |
+| **Review** | Keyframes and clips, one at a time: Approve, Redo (new seed, just that shot), or Options, with the auto-check's label on each |
 | **Options** | 4 versions of one keyframe side by side; using one saves its seed and approves it |
 | **Director** | Ask for a change in plain words ("make the ending happier", "add the puppy to the river shots"); it proposes edits, and nothing changes until you press Apply |
-| **Upload pack** | The finished file, thumbnails, title, description with chapters and lyrics, tags, and a checklist for YouTube Studio |
+| **Upload pack** | The finished file (original, and optionally with your channel intro), thumbnails, title, description with chapters and lyrics, tags, and a checklist for YouTube Studio |
 | **Library** | Every character, prop, place and voice style, where each is used, and "New …" to make more |
 | **Queue** | The GPU queue: reorder, cancel, pause, set working hours, clear history |
-| **Projects** | One per channel. The project card at the top of the sidebar (on a phone, the round picture in the top bar) switches between them or shows all; Home and the episode list follow it, new episodes join it, and **Project settings** sets its name, picture, languages and the closing line and playlist for uploads. Characters and places are shared by every project |
+| **Projects** | One per channel. The project card at the top of the sidebar (on a phone, the round picture in the top bar) switches between them or shows all; Home and the episode list follow it, new episodes join it, and **Project settings** sets its name, picture, channel intro clip, languages and the closing line and playlist for uploads. Characters and places are shared by every project |
 
 ## Review from your phone
 
@@ -393,7 +411,7 @@ uv run --project pipeline kidzone pixar <episode> --plan              # print ev
 uv run --project pipeline kidzone pixar <episode> --phase keys        # keyframes  → keys/contact.jpg
 uv run --project pipeline kidzone pixar <episode> --phase clips       # clips      → clips/contact.jpg
 uv run --project pipeline kidzone pixar <episode> --phase assemble    # the film, cut to the song
-uv run --project pipeline kidzone pixar <episode> --phase package     # upload/<name>_1080p.mp4 with your intro
+uv run --project pipeline kidzone pixar <episode> --phase package     # upload/<name>_1080p.mp4 (add --intro: also <name>_intro_1080p.mp4)
 uv run --project pipeline kidzone pixar <episode> --phase clips --redo s05   # redo one shot (also --only s03 s04)
 ```
 
@@ -404,6 +422,7 @@ uv run --project pipeline kidzone pixar <episode> --phase clips --redo s05   # r
 | `kidzone options <episode> <shot> [--n 4]` | Draw N versions of one keyframe |
 | `kidzone director <episode> --ask "…"` | Propose shot-list changes (applied from the studio) |
 | `kidzone upload <episode>` | Upload text and thumbnails |
+| `kidzone check <episode> --stage keys\|clips [--force]` | The picture auto-check (results in `checks.json`) |
 | `kidzone asset <draft>` | 4 options for a library draft |
 | `kidzone voice <id>` | A 30 s sample of a voice style |
 | `kidzone home [--set DIR]`, `kidzone migrate --to DIR` | Show or change the content folder; move content that still lives in the repo out of it |

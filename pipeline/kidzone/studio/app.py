@@ -15,7 +15,9 @@ from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import pixar
+from concurrent.futures import ThreadPoolExecutor
+
+from .. import checks, ending, pixar
 from .. import paths
 from . import lock, review, shotlist
 from . import projects as projectsedit
@@ -111,12 +113,29 @@ def health(request: Request):
 
 
 def _project_out(pid: str, p: dict) -> dict:
-    return {"id": pid, **p, "icon": file_url(paths.HOME / p["icon"]) if p.get("icon") else None, "icon_path": p.get("icon")}
+    intro = paths.HOME / p["intro"] if p.get("intro") else None
+    return {"id": pid, **p, "icon": file_url(paths.HOME / p["icon"]) if p.get("icon") else None, "icon_path": p.get("icon"),
+            "intro_url": file_url(intro) if intro and intro.is_file() else None}
 
 
 @app.get("/api/projects")
 def projects():
     return [_project_out(pid, p) for pid, p in paths.projects().items()]
+
+
+@app.get("/api/intro-clips")
+def intro_clips():
+    """Short videos in the content folder's assets/ that could open a channel's videos (Project settings → Channel intro)."""
+    out = []
+    for f in sorted(ASSETS.rglob("*")):
+        if f.suffix.lower() in projectsedit.VIDEO and f.is_file() and not any(p.startswith(".") for p in f.parts):
+            try:
+                sec = pixar._probe_seconds(f)
+            except ValueError:
+                continue
+            if sec <= 15:
+                out.append({"path": str(f.relative_to(paths.HOME)), "url": file_url(f), "seconds": round(sec, 1)})
+    return out[:40]
 
 
 class NewProject(BaseModel):
@@ -138,6 +157,7 @@ class ProjectPatch(BaseModel):
     name: str | None = None
     tagline: str | None = None
     icon: str | None = None
+    intro: str | None = None
     languages: list[str] | None = None
     subscribe: dict[str, str | None] | None = None
     playlists: dict[str, str | None] | None = None
@@ -221,9 +241,9 @@ def _summary(d: Path) -> dict:
 
 def _film(d: Path, out: Path) -> Path:
     """The best finished cut to watch: the upload pack's 1080p, else a finished *_1080p.mp4 next to the spec, else the assembled film."""
-    up = d / "upload" / f"{out.stem}_1080p.mp4"
-    if up.exists():
-        return up
+    for up in (d / "upload" / f"{out.stem}_1080p.mp4", d / "upload" / f"{out.stem}_intro_1080p.mp4"):
+        if up.exists() and (not out.exists() or up.stat().st_mtime >= out.stat().st_mtime):
+            return up
     done = sorted(d.glob("*_1080p.mp4"), key=lambda f: f.stat().st_mtime, reverse=True)
     return done[0] if done else out
 
@@ -256,6 +276,11 @@ def episode(slug: str):
         v = review.status(rv[stage].get(sid), _mtime(f))
         return "approved" if published and v == "to_review" else v   # finished outside the studio = accepted
     raw = {sh["id"]: sh for sh in ep.spec.get("shot", [])}
+    active = [j for j in store.jobs(("queued", "running")) if j["episode"] == slug]
+    checking = {st: any(j["kind"] == "check" and j["args"].get("stage") == st for j in active) for st in checks.STAGES}
+    looked = checks.load(ep.dir)
+    with ThreadPoolExecutor(8) as pool:   # movement check: ~0.15 s per new clip, cached by file time
+        list(pool.map(checks.motion_cached, [ep.clips_dir / f"{s.id}.mp4" for s in ep.shots]))
     shots = []
     for s in ep.shots:
         kp, cp = ep.keys_dir / f"{s.key.name}.png", ep.clips_dir / f"{s.id}.mp4"
@@ -267,11 +292,56 @@ def episode(slug: str):
             "cast": s.key.cast,
             "key_prompt": s.key.prompt, "motion": s.motion, "lyric": r.get("lyric"), "feel": r.get("feel"),
             "options": len(keyoptions.listing(ep.dir, s.id)),
-            "key": {"url": file_url(kp), "status": st("keys", s.id, kp), "note": (rv["keys"].get(s.id) or {}).get("note")},
-            "clip": {"url": file_url(cp), "status": st("clips", s.id, cp), "note": (rv["clips"].get(s.id) or {}).get("note")},
+            "key": {"url": file_url(kp), "status": st("keys", s.id, kp), "note": (rv["keys"].get(s.id) or {}).get("note"),
+                    "check": checks.summary(ep, looked, "keys", s, checking["keys"])},
+            "clip": {"url": file_url(cp), "status": st("clips", s.id, cp), "note": (rv["clips"].get(s.id) or {}).get("note"),
+                     "check": checks.summary(ep, looked, "clips", s, checking["clips"])},
         })
-    active = [j for j in store.jobs(("queued", "running")) if j["episode"] == slug]
-    return {**summary, "width": ep.width, "height": ep.height, "song": file_url(ep.song), "shots": shots, "jobs": active}
+    end = None if published else ending.suggest(ep)
+    return {**summary, "width": ep.width, "height": ep.height, "song": file_url(ep.song), "shots": shots, "jobs": active,
+            "ending": end if end and end.get("kind") else None}
+
+
+class EndingReq(BaseModel):
+    seconds: float
+
+
+@app.post("/api/episodes/{slug}/ending")
+def set_ending(slug: str, req: EndingReq):
+    """End the film at `seconds` (the music fades out over the last 1.5 s). Shots that would start after it are taken out
+    of episode.toml and kept in removed_shots.toml (with their keyframes and clips still on disk); then it re-assembles."""
+    spec = _spec(slug)
+    ep = pixar.load(spec)
+    song_len = pixar._probe_seconds(ep.song) if ep.song.exists() else 0
+    if not 5 <= req.seconds <= max(song_len, ep.shots[-1].start + ep.shots[-1].dur) + 0.05:
+        raise HTTPException(400, "the end must be inside the song")
+    drop = [s.id for s in ep.shots if s.start > req.seconds - 1.0]
+    if len(drop) >= len(ep.shots):
+        raise HTTPException(400, "that would remove every shot")
+    text = spec.read_text()
+    kept = []
+    for sid in drop:
+        a, b = shotlist._own_span(text, sid)
+        kept.append(text[a:b].rstrip("\n"))
+    if kept:
+        import datetime as dt
+        backup = ep.dir / "removed_shots.toml"
+        note = f"# Removed when the film was set to end at {req.seconds:.1f} s ({dt.datetime.now():%Y-%m-%d %H:%M}). Paste back into episode.toml to restore.\n"
+        backup.write_text((backup.read_text() + "\n" if backup.exists() else "") + note + "\n\n".join(kept) + "\n")
+    try:
+        for sid in drop:
+            shotlist.delete(spec, sid)
+        set_table_field(spec, "song", "seconds", round(req.seconds, 2), "end of the film (the music fades out)")
+    except shotlist.SpecError as e:
+        raise HTTPException(400, str(e))
+    _edited(slug)
+    ep = pixar.load(spec)
+    job = None
+    if all((ep.clips_dir / f"{s.id}.mp4").exists() for s in ep.shots):
+        job = store.add_job("assemble", slug, {})
+        events.publish("job", job=job)
+        worker.poke()
+    return {"ok": True, "removed": drop, "job": job}
 
 
 # ---------------------------------------------------------------- shot list (episode.toml editing)
@@ -377,6 +447,8 @@ class NewEpisode(BaseModel):
     bpm: int | None = None
     project: str | None = None   # default: the first project in projects.toml
     scene: str = "meadow"
+    source: str | None = None    # start from this episode: its style, vars and voice
+    copy_shots: bool = False     # …and its shots (in order) with their keyframes
 
 
 @app.post("/api/episodes")
@@ -390,9 +462,12 @@ def create_episode(req: NewEpisode):
     if req.lang not in ("en", "hi"):
         raise HTTPException(400, "lang must be en or hi")
     lines = [ln.strip() for ln in req.lyrics.splitlines() if ln.strip() and not ln.strip().startswith("[")]
+    source = _spec(req.source) if req.source else None
+    if req.project and req.project not in paths.projects():
+        raise HTTPException(400, f"no project {req.project}")
     try:
         shotlist.new_episode(EPISODES / slug, req.title.strip(), req.lang, lines, req.line_seconds, req.project or paths.default_project(), req.scene,
-                             req.lyrics, req.bpm)
+                             req.lyrics, req.bpm, source, req.copy_shots)
     except shotlist.SpecError as e:
         raise HTTPException(409, str(e))
     events.publish("spec", episode=slug)
@@ -400,6 +475,22 @@ def create_episode(req: NewEpisode):
 
 
 # ---------------------------------------------------------------- library: new characters / props / scenes
+
+class EpisodeProject(BaseModel):
+    project: str
+
+
+@app.put("/api/episodes/{slug}/project")
+def move_episode(slug: str, req: EpisodeProject):
+    """Move an episode to another project (channel): one line in its episode.toml."""
+    spec = _spec(slug)
+    if req.project not in paths.projects():
+        raise HTTPException(400, f"no project {req.project}")
+    set_table_field(spec, "episode", "project", req.project)
+    _edited(slug)
+    events.publish("projects")
+    return _summary(spec.parent)
+
 
 def _draft_out(d: dict) -> dict:
     folder = assetmaker.draft_dir(d["id"])
@@ -657,20 +748,29 @@ def get_upload(slug: str):
     spec = _spec(slug)
     ep = pixar.load(spec)
     d = ep.dir / "upload"
-    video = d / f"{ep.output.stem}_1080p.mp4"
+    stem = ep.output.stem
+    intro = pixar.project_intro(ep)
     text_f = d / "upload_text.md"
     text = up.parse_text(text_f.read_text()) if text_f.exists() else None
     thumbs = sorted([p for p in d.glob("thumb*.jpg") if not p.name.startswith("thumb_704")] if d.exists() else [],
                     key=lambda p: (p.name != "thumbnail.jpg", p.name))
     st = up.load_state(ep.dir)
     lang = ep.spec["episode"].get("lang", "en")
-    playlist = ep.spec["episode"].get("playlist") or up.PLAYLISTS.get(lang, "English Rhymes")
+    proj = paths.projects().get(ep.spec["episode"].get("project") or paths.default_project(), {})
+    playlist = ep.spec["episode"].get("playlist") or proj.get("playlists", {}).get(lang) or up.PLAYLISTS.get(lang, "English Rhymes")
     chosen = st.get("thumbnail") or (thumbs[0].name if thumbs else None)
+    videos = []
+    for variant, f in (("original", d / f"{stem}_1080p.mp4"), ("intro", d / f"{stem}_intro_1080p.mp4")):
+        if f.exists():
+            videos.append({"variant": variant, "url": file_url(f), "name": f.name, "mb": round(f.stat().st_size / 1e6, 1),
+                           "old": ep.output.exists() and f.stat().st_mtime < ep.output.stat().st_mtime,
+                           "description": up.description_for(ep, text["description"], variant == "intro") if text else None})
     return {
         "slug": slug, "title": ep.spec["episode"]["title"], "lang": lang, "playlist": playlist,
         "published": ep.spec["episode"].get("status") == "published",
         "episode_ready": ep.output.exists(),
-        "video": {"url": file_url(video), "name": video.name, "mb": round(video.stat().st_size / 1e6, 1)} if video.exists() else None,
+        "video": videos[0] if videos else None, "videos": videos,
+        "intro": {"name": intro.name, "url": file_url(intro), "project": proj.get("name")} if intro else None,
         "text": text, "thumbs": [{"name": p.name, "url": file_url(p)} for p in thumbs], "thumbnail": chosen,
         "checks": [{"id": k, "title": a.format(playlist=playlist), "detail": b, "on": k in st.get("checks", []) or ("checks" not in st and ep.spec["episode"].get("status") == "published")} for k, a, b in CHECKS],
         "jobs": [j for j in store.jobs(("queued", "running")) if j["episode"] == slug],
@@ -817,6 +917,9 @@ class RunReq(BaseModel):
     take: str | None = None     # master: the picked take
     n: int | None = None        # song: how many takes
     path: str | None = None     # import: an existing mastered song (from /api/songs/existing)
+    stage: str | None = None    # check: keys | clips
+    force: bool = False         # check: check again even if unchanged
+    intro: bool = False         # package: also the version with the project's intro clip
 
 
 @app.post("/api/episodes/{slug}/run")
@@ -831,7 +934,11 @@ def run(slug: str, req: RunReq):
         allowed = {str(p.relative_to(paths.HOME)) for p in sm.existing_songs()}
         if req.path not in allowed:
             raise HTTPException(400, "pick one of the songs listed in the studio")
-    args = {"only": req.only, "redo": req.redo} | ({"all": True} if req.all else {}) | ({"take": req.take} if req.take else {}) \
+    if req.phase == "check" and req.stage not in checks.STAGES:
+        raise HTTPException(400, "check needs stage keys or clips")
+    args = {"only": req.only, "redo": req.redo} | ({"stage": req.stage, "force": req.force} if req.phase == "check" else {}) \
+        | ({"intro": True} if req.phase == "package" and req.intro else {}) \
+        | ({"all": True} if req.all else {}) | ({"take": req.take} if req.take else {}) \
         | ({"n": max(1, min(8, req.n))} if req.n else {}) | ({"path": str(paths.HOME / req.path)} if req.path else {})
     job = store.add_job(req.phase, slug, args)
     events.publish("job", job=job)

@@ -6,6 +6,7 @@ import { useIsDesktop } from "../components/MobileBars";
 import { ChipRow, ResultLine, SearchBox, matches, useSaved } from "../components/Filters";
 import { AnimaticPlayer, FilmPlayer, type Mode } from "./Animatic";
 import { DirectorPanel } from "./Director";
+import { useProject } from "../components/Project";
 
 type NodeKind = "done" | "you" | "running" | "wait";
 interface FlowNode { n: string; title: string; kind: NodeKind; state: string; detail: string; gate?: boolean; action?: { label: string; phase?: Phase; to?: string } }
@@ -23,7 +24,12 @@ export function EpisodePage({ slug }: { slug: string }) {
   const [who, setWho] = useSaved(`sb.who.${slug}`, "");
   const [where, setWhere] = useSaved(`sb.where.${slug}`, "");
   const lib = useLoad(api.library, [], ["library"]);
+  const { projects } = useProject();
   const d = ep.data;
+  const moveTo = async (project: string) => {
+    setErr(null);
+    try { await api.moveEpisode(slug, project); ep.reload(); } catch (e) { setErr((e as Error).message); }
+  };
 
   const run = async (phase: Phase) => {
     setBusy(phase); setErr(null);
@@ -44,6 +50,7 @@ export function EpisodePage({ slug }: { slug: string }) {
     ["missing", "Not made", (s) => s.key.status === "missing"],
     ["sing", "Sings", (s) => s.sing],
     ["options", "Has options", (s) => s.options > 0],
+    ["flagged", "Auto-check: look", (s) => s.key.check?.state === "flag" || s.clip.check?.state === "flag"],
   ];
   const castIds = [...new Set(d.shots.flatMap((s) => s.cast))];
   const sceneIds = [...new Set(d.shots.map((s) => s.scene))];
@@ -64,6 +71,17 @@ export function EpisodePage({ slug }: { slug: string }) {
         <div>
           <div className="muted small">{(d.lang ?? "").toUpperCase()} · {fmtTime(d.shots.length ? d.shots[d.shots.length - 1].start + d.shots[d.shots.length - 1].dur : 0)} · {d.shots.length} shots</div>
           <h1 lang={d.lang}>{d.title}</h1>
+          <div className="row ep-meta" style={{ gap: 8, marginTop: 8 }}>
+            {projects.length > 1 && (
+              <label className="ep-project">
+                <span className="faint small">Project</span>
+                <select className="select" value={d.project} onChange={(e) => moveTo(e.target.value)} aria-label="Move this episode to another project">
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
+            )}
+            <a className="btn btn-quiet small" href={href("episodes", "new", slug)}>New episode from this…</a>
+          </div>
         </div>
         <nav className="steps-strip" aria-label="Episode steps">
           {nodes.map((n) => (
@@ -75,6 +93,8 @@ export function EpisodePage({ slug }: { slug: string }) {
       </header>
       <ErrorNote msg={err ?? ep.error} />
       {d.jobs.map((j) => <JobBar key={j.id} j={j} />)}
+
+      {d.ending && <EndingCard d={d} onDone={ep.reload} onError={setErr} />}
 
       {next?.action && next.kind !== "running" && (
         next.action.to
@@ -141,6 +161,7 @@ export function EpisodePage({ slug }: { slug: string }) {
                   {s.sing && <span className="tag sing">sings</span>}
                   {flag && <span className="tag gate">{flag}</span>}
                   {s.key.status === "approved" && <span className="tag go" aria-label="approved">✓</span>}
+                  {(s.key.check?.state === "flag" || s.clip.check?.state === "flag") && <span className="tag gate" title={[...(s.key.check?.flags ?? []), ...(s.clip.check?.flags ?? [])].join("\n")}>⚠ look</span>}
                   {s.options > 0 && <span className="tag">{s.options} options</span>}
                   {newPlace && <span className="tag" style={{ marginLeft: "auto", gap: 4 }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>{nice(s.scene)}</span>}
@@ -175,6 +196,13 @@ function buildNodes(d: EpisodeDetail): FlowNode[] {
   const clipsToReview = d.shots.filter((s) => s.clip.status === "to_review").length;
   const keysApproved = d.shots.filter((s) => s.key.status === "approved").length;
   const clipsApproved = d.shots.filter((s) => s.clip.status === "approved").length;
+  const checked = (stage: "key" | "clip") => {   // the auto-check in one phrase
+    const made = d.shots.filter((s) => s[stage].url && s[stage].status !== "approved");
+    const flagged = made.filter((s) => s[stage].check?.state === "flag").length;
+    if (flagged) return ` · auto-check: ${flagged} to look at`;
+    if (made.some((s) => s[stage].check?.state === "checking")) return " · auto-checking…";
+    return made.length && made.every((s) => s[stage].check?.state === "ok") ? " · auto-check passed" : "";
+  };
   const published = d.stage === "published";
   const node = (n: string, title: string, f: Omit<FlowNode, "n" | "title">): FlowNode => ({ n, title, ...f });
   const doneish = (cond: boolean): NodeKind => (published || cond ? "done" : "wait");
@@ -196,7 +224,7 @@ function buildNodes(d: EpisodeDetail): FlowNode[] {
       gate: true,
       kind: running("keys") ? "running" : published ? "done" : keysToReview ? "you" : d.keys === total && keysApproved === total ? "done" : "wait",
       state: running("keys") ? "Rendering" : published ? "Done" : keysToReview ? "Needs you" : `${d.keys}/${total}`,
-      detail: `${d.keys} of ${total} made · ${keysApproved} approved${keysToReview ? ` · ${keysToReview} waiting for you` : ""}.`,
+      detail: `${d.keys} of ${total} made · ${keysApproved} approved${keysToReview ? ` · ${keysToReview} waiting for you` : ""}${checked("key")}.`,
       action: keysToReview ? { label: "Review keyframes →", to: href("episodes", d.slug, "review", "keys") }
         : d.empty_shots ? undefined
         : d.keys < total ? { label: "Make missing keyframes", phase: "keys" } : { label: "Open review", to: href("episodes", d.slug, "review", "keys") },
@@ -205,7 +233,7 @@ function buildNodes(d: EpisodeDetail): FlowNode[] {
       gate: true,
       kind: running("clips") ? "running" : published ? "done" : clipsToReview ? "you" : d.clips === total && clipsApproved === total ? "done" : "wait",
       state: running("clips") ? "Rendering" : published ? "Done" : clipsToReview ? "Needs you" : `${d.clips}/${total}`,
-      detail: `${d.clips} of ${total} rendered (~8 min each at 720p) · ${clipsApproved} approved.`,
+      detail: `${d.clips} of ${total} rendered (~8 min each at 720p) · ${clipsApproved} approved${checked("clip")}.`,
       action: clipsToReview ? { label: "Review clips →", to: href("episodes", d.slug, "review", "clips") }
         : d.clips < total ? { label: "Render missing clips", phase: "clips" } : { label: "Open review", to: href("episodes", d.slug, "review", "clips") },
     }),
@@ -231,5 +259,31 @@ export function JobBar({ j }: { j: Job }) {
       <div className="bar" style={{ flex: "1 1 200px" }}><span style={{ width: `${Math.max(2, j.progress * 100)}%` }} /></div>
       <span className="muted small">{j.message}</span>
     </div>
+  );
+}
+
+/** "The song goes quiet at 2:12.6 but the film runs to 2:20": one tap ends the film just after the sound (fade out). */
+function EndingCard({ d, onDone, onError }: { d: EpisodeDetail; onDone: () => void; onError: (m: string) => void }) {
+  const e = d.ending!;
+  const [busy, setBusy] = useState(false);
+  const t = (x: number) => { const y = Math.floor(x * 10) / 10; return `${fmtTime(y)}.${Math.round((y % 1) * 10) % 10}`; };
+  const tail = e.film_end - (e.kind === "silent" ? e.sound_end : e.voice_end ?? e.sound_end);
+  const apply = async () => {
+    setBusy(true);
+    try { await api.setEnding(d.slug, e.cut); onDone(); } catch (x) { onError((x as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="ending-card" aria-label="Song ending">
+      <span className="col" style={{ gap: 4, flex: "1 1 260px", minWidth: 0 }}>
+        <b>{e.kind === "silent" ? `The last ${Math.round(tail)} s are silent` : `${Math.round(tail)} s of music after the last sung line`}</b>
+        <span className="muted small">
+          {e.kind === "silent"
+            ? `The song goes quiet at ${t(e.sound_end)}, but the film runs to ${t(e.film_end)}.`
+            : `The singing ends at ${t(e.voice_end ?? e.sound_end)}; the music plays on to ${t(e.sound_end)}. Fine to keep, or end sooner.`}
+          {" "}Ending at {t(e.cut)} fades the music out{e.drop.length ? ` and takes out ${e.drop.join(", ")} (kept in removed_shots.toml)` : ""}, then re-assembles.
+        </span>
+      </span>
+      <button className="btn" disabled={busy} onClick={apply}>{busy ? "Ending…" : `End at ${t(e.cut)}`}</button>
+    </section>
   );
 }

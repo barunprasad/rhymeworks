@@ -11,6 +11,7 @@
   kidzone song <episode.toml> [--n 4] | --master <take> | --import <audio>
                                                               ACE-Step takes / master the picked take / reuse a mastered song
   kidzone voice <voice id> [...]                              30 s samples of voice styles (assets/voices.toml)
+  kidzone check <episode.toml> --stage keys|clips [--force]   auto-check pictures (extra/doubled characters, drawing mistakes)
   kidzone studio [--port 8765]                                the Rhymeworks studio (API + GPU queue)
 Stages (in order): write, song, align, props, direct, render, package. Each writes its own output in
 episodes/<slug>/, so a re-run resumes where it stopped; --redo clears a stage and everything after it.
@@ -90,6 +91,7 @@ def main() -> None:
     px.add_argument("--redo", nargs="*", help="delete and regenerate these shots in the current phase")
     px.add_argument("--dry-run", action="store_true", help="print the commands instead of running them")
     px.add_argument("--plan", action="store_true", help="print the resolved shot plan (prompts, images, timing) as JSON")
+    px.add_argument("--intro", action="store_true", help="package: also make the version with the project's intro clip")
     dr = sub.add_parser("draft", help="draft keyframe/motion prompts for shots that have none (local writer LLM)")
     dr.add_argument("spec")
     dr.add_argument("--all", action="store_true", help="redraft every shot")
@@ -115,6 +117,11 @@ def main() -> None:
     di.add_argument("spec")
     di.add_argument("--ask", required=True)
     di.add_argument("--shots", nargs="*")
+    ck = sub.add_parser("check", help="auto-check keyframes or clips with the local vision model (hints in checks.json)")
+    ck.add_argument("spec")
+    ck.add_argument("--stage", choices=["keys", "clips"], default="clips")
+    ck.add_argument("--only", nargs="*")
+    ck.add_argument("--force", action="store_true", help="check again even if unchanged")
     hm = sub.add_parser("home", help="show (or --set) this computer's content folder")
     hm.add_argument("--set", metavar="DIR", help="use DIR as the content folder (creates it from templates/home)")
     mg = sub.add_parser("migrate", help="move episodes/assets/library/briefs out of the repo into a content folder")
@@ -161,6 +168,9 @@ def main() -> None:
     elif args.cmd == "director":
         from . import shotdirector
         shotdirector.main(args)
+    elif args.cmd == "check":
+        from . import checks
+        checks.main(args)
     elif args.cmd == "draft":
         from . import drafter
         drafter.main(args)

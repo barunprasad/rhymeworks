@@ -6,7 +6,8 @@ Phases (each resumable; existing outputs are kept unless --redo):
   keys      FLUX.2 klein edit keyframes → keys/<shot>_a.png (+ _b end keys) and keys/contact.jpg   ← review gate
   clips     LTX-2.3 distilled I2V (or a2v lip-sync for sing shots) → clips/<shot>.mp4 and clips/contact.jpg  ← review gate
   assemble  trim each clip to its slot on the song's line grid, concat, mux the mastered song → <output>
-  package   prepend the Gaana Gaadi intro and upscale to 1080p → upload/<stem>_1080p.mp4
+  package   upscale to 1080p → upload/<stem>_1080p.mp4; with --intro also the version that opens with the project's
+            intro clip (projects.toml `intro`) → upload/<stem>_intro_1080p.mp4
 
 Prompt tokens: {id} = registry character/prop ref + "(second image)" etc., attached in order of first appearance after
 the scene; {id|custom words} = same image with custom words; {Id} = capitalised; {name} = episode [vars]; {keep:id} = the prop's keep text.
@@ -22,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .core import ROOT
+from . import paths
 from .paths import ASSETS, BRAND, BRAND_TOOLS, REGISTRY, find_spec, rel
 
 ORD = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"]
@@ -30,7 +32,6 @@ LTX_DIR = ROOT / "spikes/vendor/ltx-2-mlx"
 LTX_MODELS = ["--model", str(ROOT / "spikes/models/ltx-2.3-mlx-q4"), "--gemma", str(ROOT / "spikes/models/gemma-3-12b-it-4bit")]
 ENV = {"AGX_RELAX_CDM_CTXSTORE_TIMEOUT": "1", "HF_HUB_OFFLINE": "1"}
 INTRO_ADD = BRAND_TOOLS / "add_intro.sh"
-INTRO = BRAND / "intro/intro.mp4"   # your channel intro; package skips it when missing
 DEFAULT_KEY_STYLE = ("Keep each character's exact look, shape, face, body proportions, outfit and colours from their reference "
                      "image. Same Pixar 3D style and lighting as the scene, cinematic. Each character has their own distinct pose. "
                      "Include only the characters described — no extra or duplicate characters, no people or children other "
@@ -306,21 +307,42 @@ def assemble(ep: Episode, dry=False) -> Path:
     return ep.output
 
 
-def package(ep: Episode, dry=False) -> Path:
+def project_intro(ep: Episode) -> Path | None:
+    """The episode's project intro clip (projects.toml: intro = "assets/brand/intro/intro.mp4"), if it has one."""
+    pid = ep.spec["episode"].get("project") or paths.default_project()
+    p = paths.projects().get(pid, {}).get("intro")
+    return paths.HOME / p if p and (paths.HOME / p).is_file() else None
+
+
+def _newer(out: Path, *src: Path) -> bool:
+    return out.exists() and all(out.stat().st_mtime >= s.stat().st_mtime for s in src)
+
+
+def _upscale(src: Path, out: Path, dry: bool) -> None:
+    _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", "scale=1920:1080:flags=lanczos,unsharp=5:5:0.4:5:5:0.0",
+          "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", str(out)], dry)
+
+
+def package(ep: Episode, dry=False, intro=False) -> Path:
+    """The 1080p upload file, and with intro=True also the one that opens with the project's intro clip.
+    Each is remade only when the assembled episode (or the intro clip) is newer."""
     up = ep.dir / "upload"
     up.mkdir(exist_ok=True)
     stem = ep.output.stem
-    with_intro = ep.dir / f"{stem}_intro.mp4"
     final = up / f"{stem}_1080p.mp4"
-    if INTRO.exists():
-        _run([str(INTRO_ADD), str(INTRO), str(ep.output), str(with_intro)], dry)
-    else:   # no channel intro in your content folder: package the episode as it is
-        print("no brand intro (assets/brand/intro/intro.mp4): packaging without one")
-        with_intro = ep.output
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(with_intro), "-vf", "scale=1920:1080:flags=lanczos,unsharp=5:5:0.4:5:5:0.0",
-          "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", str(final)], dry)
-    if not dry:
-        print(f"upload pack → {rel(final)}")
+    if not _newer(final, ep.output):
+        _upscale(ep.output, final, dry)
+        print(f"upload file → {rel(final)}")
+    if intro:
+        clip = project_intro(ep)
+        if not clip:
+            print("this project has no intro clip (Project settings → Channel intro): made the original only")
+            return final
+        with_intro, out = ep.dir / f"{stem}_intro.mp4", up / f"{stem}_intro_1080p.mp4"
+        if not _newer(out, ep.output, clip):
+            _run([str(INTRO_ADD), str(clip), str(ep.output), str(with_intro)], dry)
+            _upscale(with_intro, out, dry)
+            print(f"with intro → {rel(out)}")
     return final
 
 
@@ -356,4 +378,4 @@ def main(args) -> None:
         if ph in ("keys", "clips"):
             _redo(ep, args.redo, ph, args.dry_run)
         {"keys": lambda: keys(ep, args.only, args.dry_run), "clips": lambda: clips(ep, args.only, args.dry_run),
-         "assemble": lambda: assemble(ep, args.dry_run), "package": lambda: package(ep, args.dry_run)}[ph]()
+         "assemble": lambda: assemble(ep, args.dry_run), "package": lambda: package(ep, args.dry_run, getattr(args, "intro", False))}[ph]()

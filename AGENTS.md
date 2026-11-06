@@ -60,7 +60,10 @@ at review gates; everything else is automated.
   (`STATE/studio.db`); the worker runs ONE GPU job at a time as a `kidzone …` subprocess (`worker.command_for`) and
   honours the settings paused / daytime_only (work hours, default 09:00–22:00) / yield_to_ollama. Quick jobs (Director)
   may run outside work hours.
-- **Job kinds**: keys / clips / assemble / package (`kidzone pixar`), `options` (`kidzone options <toml> <shot> --n 4`
+- **Job kinds**: keys / clips / assemble / package (`kidzone pixar`; package makes `upload/<stem>_1080p.mp4` and, with
+  `--intro`, `<stem>_intro_1080p.mp4` from the project's `intro` clip; each only when older than its sources), `check`
+  (`kidzone check <toml> --stage keys|clips`: the picture auto-check, queued by the worker after every successful keys/clips
+  job unless the `auto_check` setting is off), `options` (`kidzone options <toml> <shot> --n 4`
   → `keys/options/<shot>/<seed>.png`; using one writes its seed and approves it), `draft` (the writer LLM fills empty
   shot prompts; invented tokens become plain words), `director` (`kidzone director <toml> --ask …` proposes field
   changes → `episodes/<slug>/director.json`; nothing changes until Apply), `song` / `master` / `import`
@@ -68,6 +71,18 @@ at review gates; everything else is automated.
   import = reuse a mastered song, beat fit over all downbeats (`fit_bar`, never one median beat gap) + Whisper line
   alignment → shots rebuilt on its bar grid), `voice` (30 s sample), `upload` (upload text with LLM title, intro and
   tags + exact chapters and lyrics; thumbnails lettered with `text.swift`), `asset` (4 FLUX options for a library draft).
+- **Auto-check** (`kidzone/checks.py`): hints, never decisions. Movement is computed in the API for every clip (pure
+  Python on 64×36 grey frames, cached by mtime; frozen = mean frame step < 1.5). The picture check asks the writer model
+  (vision) to count each expected character (registry `[cast]` of the shot's keys; props aren't counted) plus extras and
+  list clear drawing mistakes, per keyframe and at 3 moments per clip → `episodes/<slug>/checks.json` keyed by output name
+  + mtime (a redone shot is checked again). Counting per named character works much better than "count the people".
+- **Song ending** (`kidzone/ending.py`): last sound (−50 dBFS) and last singing (vocal, −38 dBFS) in 0.1 s windows; the
+  episode API offers an end point when the film runs > 3 s past the sound, or > 8 s of music follow the last sung line.
+  `POST /api/episodes/{slug}/ending` sets `[song] seconds` (assembly then fades the music), moves shots that would start
+  after it to `removed_shots.toml`, and queues assemble.
+- **New episode from another** (`shotlist.new_episode(source=, copy_shots=)`): copies `[style]`, `[vars]` and the song
+  voice/key; with copy_shots, shot i's prompts/scene/seed/end/feel go to new line i and its keyframes are copied (same
+  prompt + seed = same picture).
 - **Review**: decisions → `episodes/<slug>/review.toml`; an approval goes stale when the file changes;
   `status = "published"` episodes count as approved. Redo bumps `seed` (keys) or `clip_seed` (clips) and queues only that shot.
 - **Writes are safe**: every `episode.toml` / `registry.toml` write is format-preserving (comments survive) and
@@ -85,9 +100,13 @@ at review gates; everything else is automated.
 - **Projects** (`src/components/Project.tsx`, `studio/projects.py`): `ProjectProvider` holds the current project per browser
   (`useSaved("project")`, or `all`); Home, the episode list, the sidebar and the phone badge filter with `inProject`, and new
   episodes are created in it. `POST /api/projects` adds one, `PATCH /api/projects/{id}` edits name / tagline / icon (a picture
-  path in HOME, e.g. a library item's `path`) / languages / `subscribe` and `playlists` per language, format-preserving and
+  path in HOME, e.g. a library item's `path`) / intro (a short video in HOME, listed by `/api/intro-clips`) / languages /
+  `subscribe` and `playlists` per language, format-preserving and
   parsed before writing. Sheets that must cover the screen are rendered with `createPortal` (the phone top bar's
   `backdrop-filter` makes it the containing block for fixed elements).
+- Episodes move between projects with `PUT /api/episodes/{slug}/project` (one line in `[episode]`). Upload descriptions are
+  stored with chapters for the original file; `upload.description_for` swaps in the chapter block for the intro version
+  (offset = intro length − 0.3 s crossfade, first chapter = the channel name).
 - **Animatic / Watch** (`#/episodes/<slug>/watch`): keyframes (Ken Burns) or clips cut to the song in the browser, no
   GPU. The clip player keeps the previous, current and next `<video>` mounted with the keyframe as poster, so cuts never flash black.
 
@@ -111,8 +130,8 @@ at review gates; everything else is automated.
 - Lip-sync: a2v with the Spleeter-isolated vocal, audio start = shot start − 0.167 s.
 - FLUX misspells text: **always set lettering with the font**. Pillow (no raqm) and ImageMagick (no harfbuzz) mangle
   Devanagari (हिंदी → हदिी): render Hindi with `text.swift` (CoreText).
-- New episodes render at 1280×720; upscale to 1920×1080 (lanczos + light unsharp) for upload; prepend the intro with
-  `pipeline/tools/brand/add_intro.sh <intro.mp4> <ep.mp4> <out.mp4>`.
+- New episodes render at 1280×720; upscale to 1920×1080 (lanczos + light unsharp) for upload; the intro version is
+  made with `pipeline/tools/brand/add_intro.sh <intro.mp4> <ep.mp4> <out.mp4>` before upscaling. Never on Shorts.
 
 ## Rules for changes
 
@@ -134,7 +153,7 @@ isn't in HOME. The lock tests use a small app with the same middleware (importin
 
 | Path | What |
 |---|---|
-| `pipeline/kidzone/` | CLI (`cli.py`), paths, the episode engine (`pixar.py`), songs (`songmaker.py`), library (`assetmaker.py`), writer / director / options, upload pack |
+| `pipeline/kidzone/` | CLI (`cli.py`), paths, the episode engine (`pixar.py`), songs (`songmaker.py`), library (`assetmaker.py`), writer / director / options, upload pack, auto-checks (`checks.py`), song ending (`ending.py`) |
 | `pipeline/kidzone/studio/` | API (`app.py`), queue (`store.py`), worker, review, validated writers (`shotlist.py`, `specedit.py`), phone lock |
 | `pipeline/tools/` | melody guide, mastering and polish, vocal split, song scoring, motion check, `brand/` |
 | `packages/studio/` | the studio web app |

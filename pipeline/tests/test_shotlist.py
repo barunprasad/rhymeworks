@@ -74,6 +74,26 @@ def test_new_episode_one_shot_per_line(tmp_path):
         sl.new_episode(tmp_path / "fruit-friends", "x", "en", [], 4.8, "gaana-gaadi", "meadow")
 
 
+def test_new_episode_from_another_reuses_style_shots_and_keyframes(tmp_path):
+    src = tmp_path / "wheels" / "episode.toml"
+    src.parent.mkdir()
+    shutil.copy(WHEELS, src)
+    old = sl.read(src)["shots"]
+    (src.parent / "keys").mkdir()
+    (src.parent / "keys" / f"{old[1]['id']}_a.png").write_bytes(b"key")
+    spec = sl.new_episode(tmp_path / "bus-hi", "Bus Hindi", "hi", ["पहिया", "गोल", "नई पंक्ति"], 4.8, "gaana-gaadi", "meadow",
+                          source=src, copy_shots=True)
+    data, before = tomllib.loads(spec.read_text()), tomllib.loads(src.read_text())
+    assert data["style"] == before["style"] and data["vars"] == before["vars"]
+    new = sl.read(spec)["shots"]
+    assert [s["lyric"] for s in new[:3]] == ["पहिया", "गोल", "नई पंक्ति"]
+    assert new[0]["key"] == old[0]["key"] and new[1]["seed"] == old[1]["seed"] and new[2]["key"] == old[2]["key"]
+    assert (spec.parent / "keys" / "s01_a.png").read_bytes() == b"key"
+    pixar.load(spec)
+    plain = sl.new_episode(tmp_path / "bus-2", "Bus 2", "en", ["a", "b"], 4.8, "gaana-gaadi", "meadow", source=src)
+    assert all(not s["key"] for s in sl.read(plain)["shots"]) and not (plain.parent / "keys").exists()
+
+
 def test_drafter_fills_empty_shots_and_strips_invented_tokens(tmp_path):
     spec = sl.new_episode(tmp_path / "t", "Test", "en", ["one", "two"], 4.8, "gaana-gaadi", "meadow")
 

@@ -4,6 +4,7 @@
 name = "My channel"                              # also added to every upload's tags
 tagline = "Songs for kids"
 # icon = "assets/brand/final/yt_icon_800.png"    # optional, also used on thumbnails
+# intro = "assets/brand/intro/intro.mp4"        # optional: a short clip that opens the "with intro" upload file
 languages = ["en"]
 
 # The closing line of every upload description, per language (default: "Subscribe to <name> for new songs!")

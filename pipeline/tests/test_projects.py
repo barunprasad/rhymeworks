@@ -52,3 +52,14 @@ def test_bad_edits_are_refused(file):
         with pytest.raises(projects.ProjectError):
             projects.update(pid, fields)
     assert file.read_text() == before
+
+
+def test_intro_clip_must_be_a_video_in_home(file):
+    (file.parent / "assets").mkdir()
+    (file.parent / "assets" / "intro.mp4").write_bytes(b"mp4")
+    (file.parent / "assets" / "icon.png").write_bytes(b"png")
+    assert projects.update("gaana-gaadi", {"intro": "assets/intro.mp4"})["intro"] == "assets/intro.mp4"
+    for bad in ("assets/icon.png", "assets/none.mp4"):
+        with pytest.raises(projects.ProjectError):
+            projects.update("gaana-gaadi", {"intro": bad})
+    assert "intro" not in projects.update("gaana-gaadi", {"intro": ""})

@@ -69,6 +69,9 @@ export function QueuePage() {
               <span id="hours-help" className="faint small">Format 09:00-22:00</span>
             </label>
             <Toggle on={s.yield_to_ollama} onClick={() => save({ yield_to_ollama: !s.yield_to_ollama })} title="Make room for other apps" text="Waits while another large Ollama model is loaded." />
+            <h2 style={{ marginTop: 6 }}>Auto-check</h2>
+            <Toggle on={s.auto_check} onClick={() => save({ auto_check: !s.auto_check })} title="Check pictures after each run"
+              text="After keyframes or clips are made, the writer model looks for doubled or extra characters and drawing mistakes (about a minute per episode). Movement is always checked, instantly." />
           </aside>
         )}
       </div>

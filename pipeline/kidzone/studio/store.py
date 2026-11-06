@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
-DEFAULTS = {"paused": False, "work_hours": "09:00-22:00", "daytime_only": True, "yield_to_ollama": True}
+DEFAULTS = {"paused": False, "work_hours": "09:00-22:00", "daytime_only": True, "yield_to_ollama": True, "auto_check": True}
 JOB_COLS = ["id", "kind", "episode", "args", "status", "position", "progress", "message", "log", "created", "started", "finished"]
 
 

@@ -22,9 +22,10 @@ from .store import Store
 LOGS = paths.LOGS
 QUICK = ("director",)   # a one-minute text-model answer you are waiting for: allowed outside work hours
 PHASES = ("keys", "clips", "assemble", "package")      # `kidzone pixar --phase …`
-KINDS = PHASES + ("draft", "upload", "asset", "song", "master", "import", "voice", "options", "director")  # song/master = `kidzone song` takes / mastering; voice = sample  # asset = `kidzone asset <draft>` (4 FLUX options for a new character/prop/scene)
+KINDS = PHASES + ("check", "draft", "upload", "asset", "song", "master", "import", "voice", "options", "director")  # song/master = `kidzone song` takes / mastering; voice = sample  # asset = `kidzone asset <draft>` (4 FLUX options for a new character/prop/scene)
                                                # draft = `kidzone draft` (writer LLM fills empty shot prompts)
                                                        # upload = `kidzone upload` (upload text + thumbnails)
+                                                       # check = `kidzone check` (picture auto-check, queued after keys/clips)
 
 
 def episode_spec(slug: str) -> Path:
@@ -89,6 +90,10 @@ def pending_items(slug: str, kind: str, only: list[str] | None, redo: list[str] 
     if kind == "director":
         return 1
     ep = pixar.load(episode_spec(slug))
+    if kind == "check":
+        from .. import checks
+        a = args or {}
+        return len(checks.targets(ep, a.get("stage", "clips"), only) if a.get("force") else checks.unchecked(ep, a.get("stage", "clips"), only))
     shots = [s for s in ep.shots if not only or s.id in only]
     if kind == "keys":
         names = [k.name for s in shots for k in [s.key] + ([s.end_key] if s.end_key else [])]
@@ -112,6 +117,9 @@ def command_for(kind: str, slug: str, args: dict) -> list[str]:
         return [sys.executable, "-m", "kidzone.cli", "options", spec, args["shot"], "--n", str(args.get("n") or 4)]
     if kind == "director":
         return [sys.executable, "-m", "kidzone.cli", "director", spec, "--ask", args["ask"]] + (["--shots", *args["shots"]] if args.get("shots") else [])
+    if kind == "check":
+        return [sys.executable, "-m", "kidzone.cli", "check", spec, "--stage", args.get("stage", "clips")] \
+            + (["--only", *args["only"]] if args.get("only") else []) + (["--force"] if args.get("force") else [])
     if kind == "draft":
         return [sys.executable, "-m", "kidzone.cli", "draft", spec] + (["--all"] if args.get("all") else [])
     if kind == "song":
@@ -129,6 +137,8 @@ def command_for(kind: str, slug: str, args: dict) -> list[str]:
         cmd += ["--only", *args["only"]]
     if args.get("redo"):
         cmd += ["--redo", *args["redo"]]
+    if kind == "package" and args.get("intro"):
+        cmd += ["--intro"]
     return cmd
 
 
@@ -218,7 +228,7 @@ class Worker(threading.Thread):
                 lf.write(line)
                 lf.flush()
                 line = line.strip()
-                if line.startswith(("key ", "clip ")):          # engine starts the next keyframe / clip
+                if line.startswith(("key ", "clip ", "check ")):          # engine starts the next keyframe / clip
                     if started_items:                            # …so the previous one is ready
                         self.events.publish("output", episode=slug, kind=kind)
                     started_items += 1
@@ -235,3 +245,20 @@ class Worker(threading.Thread):
                               finished=time.time(), message="done" if ok else tail)
         self.events.publish("job", job=self.store.job(jid))
         self.events.publish("output", episode=slug, kind=kind)
+        if ok and kind in ("keys", "clips"):
+            self.queue_check(slug, kind)
+
+    def queue_check(self, slug: str, stage: str) -> None:
+        """After keyframes or clips are made: queue the picture auto-check (skips outputs already checked)."""
+        if not self.store.settings().get("auto_check"):
+            return
+        if any(j["kind"] == "check" and j["episode"] == slug and j["args"].get("stage") == stage
+               for j in self.store.jobs(("queued",))):
+            return
+        try:
+            if not pending_items(slug, "check", None, None, {"stage": stage}):
+                return
+        except Exception:
+            return
+        job = self.store.add_job("check", slug, {"stage": stage})
+        self.events.publish("job", job=job)

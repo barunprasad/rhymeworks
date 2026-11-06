@@ -25,8 +25,13 @@ export function UploadPage({ slug }: { slug: string }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pick, setPick] = useState<"original" | "intro" | null>(null);
   const d = up.data;
   if (!d) return <ErrorNote msg={up.error} />;
+  const variant = pick ?? (d.videos.some((v) => v.variant === "intro") ? "intro" : "original");
+  const shown = d.videos.find((v) => v.variant === variant);
+  const description = shown?.description ?? d.text?.description ?? "";
+  const introName = d.intro?.project ? `${d.intro.project} intro` : "channel intro";
 
   const act = async (f: () => Promise<unknown>) => {
     setBusy(true); setErr(null);
@@ -37,10 +42,11 @@ export function UploadPage({ slug }: { slug: string }) {
   const done = d.checks.filter((c) => c.on).length;
   const all = done === d.checks.length;
   const working = d.jobs.some((j) => j.kind === "upload" || j.kind === "package");
+  const packing = d.jobs.some((j) => j.kind === "package");
   const missing = [!d.video && "the 1080p file", !d.text && "the upload text", !d.thumbs.length && "thumbnails"].filter(Boolean) as string[];
 
   const makeAll = () => act(async () => {
-    if (!d.video) await api.run(slug, "package");
+    if (!d.video) await api.pack(slug, false);
     if (!d.text || !d.thumbs.length) await api.run(slug, "upload");
   });
 
@@ -71,7 +77,7 @@ export function UploadPage({ slug }: { slug: string }) {
         <div className="card pad col" style={{ gap: 10, borderColor: "var(--gate-line)" }}>
           <b>Still to make: {missing.join(", ")}</b>
           <span className="muted small" style={{ lineHeight: 1.45 }}>
-            {d.episode_ready ? "The 1080p file adds your channel intro if you have one (CPU, a few minutes). The text and thumbnails come from the local writer model and your keyframes (about a minute)."
+            {d.episode_ready ? "The 1080p file is the episode as it is (CPU, a few minutes); a version with your channel intro is one tap below. The text and thumbnails come from the local writer model and your keyframes (about a minute)."
               : "Assemble the episode first (episode page, step 05)."}
           </span>
           <button className="btn btn-go" style={{ alignSelf: "flex-start" }} disabled={busy || !d.episode_ready} onClick={makeAll}>Make {missing.join(" + ")}</button>
@@ -80,14 +86,41 @@ export function UploadPage({ slug }: { slug: string }) {
 
       <div className="split">
         <div className="grow">
-          {d.video && (
+          {(d.video || d.intro) && d.episode_ready && (
             <section className="col" aria-labelledby="vid">
               <h2 id="vid" className="section-title">VIDEO FILE</h2>
-              <video src={d.video.url} controls playsInline preload="metadata" className="thumb" />
-              <div className="row between small">
-                <span className="mono faint" style={{ overflowWrap: "anywhere" }}>{d.video.name} · {d.video.mb} MB</span>
-                <a className="btn" href={d.video.url} download={d.video.name}>Download</a>
+              <div className="chips" role="tablist" aria-labelledby="vid">
+                <button role="tab" className="chip-btn" aria-selected={variant === "original"} aria-pressed={variant === "original"} onClick={() => setPick("original")}>Original</button>
+                {(d.intro || d.videos.some((v) => v.variant === "intro")) && (
+                  <button role="tab" className="chip-btn" aria-selected={variant === "intro"} aria-pressed={variant === "intro"} onClick={() => setPick("intro")}>With {introName}</button>
+                )}
               </div>
+              {shown ? (<>
+                <video key={shown.url} src={shown.url} controls playsInline preload="metadata" className="thumb" />
+                <div className="row between small">
+                  <span className="mono faint" style={{ overflowWrap: "anywhere" }}>{shown.name} · {shown.mb} MB</span>
+                  <a className="btn" href={shown.url} download={shown.name}>Download</a>
+                </div>
+                {shown.old && (
+                  <div className="row between small" style={{ color: "var(--gate-text)" }}>
+                    <span>The episode changed since this file was made.</span>
+                    <button className="btn" disabled={busy || packing} onClick={() => act(() => api.pack(slug, variant === "intro"))}>Make it again</button>
+                  </div>
+                )}
+              </>) : (
+                <div className="card pad col" style={{ gap: 8 }}>
+                  <span className="muted small" style={{ lineHeight: 1.45 }}>
+                    {variant === "intro"
+                      ? `The same 1080p file with the ${introName} (${d.intro?.name}) at the start, for YouTube. The original stays as it is. CPU, a few minutes.`
+                      : "The episode as it is, at 1080p. CPU, a few minutes."}
+                  </span>
+                  <button className="btn btn-go" style={{ alignSelf: "flex-start" }} disabled={busy || packing || (variant === "intro" && !d.intro)}
+                    onClick={() => act(() => api.pack(slug, variant === "intro"))}>
+                    {packing ? "Making…" : variant === "intro" ? `Make the version with the ${introName}` : "Make the 1080p file"}
+                  </button>
+                </div>
+              )}
+              {!d.intro && <span className="faint small">No channel intro yet: pick a clip in Project settings → Channel intro to get a version that opens with it.</span>}
             </section>
           )}
 
@@ -119,7 +152,8 @@ export function UploadPage({ slug }: { slug: string }) {
           {d.text && (
             <>
               <CopyBlock label="TITLE" text={d.text.title} copied={copied === "title"} onCopy={() => copy("title", d.text!.title)} lang={d.lang} />
-              <CopyBlock label="DESCRIPTION" text={d.text.description} copied={copied === "desc"} onCopy={() => copy("desc", d.text!.description)} long lang={d.lang} />
+              <CopyBlock label={d.videos.length > 1 ? `DESCRIPTION · CHAPTERS FOR ${variant === "intro" ? "THE INTRO VERSION" : "THE ORIGINAL"}` : "DESCRIPTION"}
+                text={description} copied={copied === "desc"} onCopy={() => copy("desc", description)} long lang={d.lang} />
               <CopyBlock label="TAGS" text={d.text.tags} copied={copied === "tags"} onCopy={() => copy("tags", d.text!.tags)} lang={d.lang} />
             </>
           )}
