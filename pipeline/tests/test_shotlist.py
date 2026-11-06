@@ -75,23 +75,27 @@ def test_new_episode_one_shot_per_line(tmp_path):
 
 
 def test_new_episode_from_another_reuses_style_shots_and_keyframes(tmp_path):
-    src = tmp_path / "wheels" / "episode.toml"
-    src.parent.mkdir()
-    shutil.copy(WHEELS, src)
-    old = sl.read(src)["shots"]
-    (src.parent / "keys").mkdir()
-    (src.parent / "keys" / f"{old[1]['id']}_a.png").write_bytes(b"key")
-    spec = sl.new_episode(tmp_path / "bus-hi", "Bus Hindi", "hi", ["पहिया", "गोल", "नई पंक्ति"], 4.8, "gaana-gaadi", "meadow",
-                          source=src, copy_shots=True)
-    data, before = tomllib.loads(spec.read_text()), tomllib.loads(src.read_text())
+    wheels = tmp_path / "wheels" / "episode.toml"     # a real spec with [style] and [vars]
+    wheels.parent.mkdir()
+    shutil.copy(WHEELS, wheels)
+    plain = sl.new_episode(tmp_path / "bus-2", "Bus 2", "en", ["a", "b"], 4.8, "gaana-gaadi", "meadow", source=wheels)
+    data, before = tomllib.loads(plain.read_text()), tomllib.loads(wheels.read_text())
     assert data["style"] == before["style"] and data["vars"] == before["vars"]
+    assert all(not s["key"] for s in sl.read(plain)["shots"]) and not (plain.parent / "keys").exists()
+
+    src = sl.new_episode(tmp_path / "kite", "Kite", "en", ["up we go", "round we go", "up we go"], 4.8, "gaana-gaadi", "meadow")
+    for sid, key in (("s00", "Kite flies"), ("s01", "Kite circles"), ("s02", "Kite again")):
+        sl.update(src, sid, {"key": key, "motion": "it moves"})
+    sl.update(src, "s01", {"lines": 2})
+    (src.parent / "keys").mkdir()
+    (src.parent / "keys" / "s01_a.png").write_bytes(b"key")
+    spec = sl.new_episode(tmp_path / "kite-hi", "Kite HI", "hi", ["ऊपर", "गोल", "नई पंक्ति"], 4.8, "gaana-gaadi", "meadow",
+                          source=src, copy_shots=True)
     new = sl.read(spec)["shots"]
-    assert [s["lyric"] for s in new[:3]] == ["पहिया", "गोल", "नई पंक्ति"]
-    assert new[0]["key"] == old[0]["key"] and new[1]["seed"] == old[1]["seed"] and new[2]["key"] == old[2]["key"]
+    assert [s["lyric"] for s in new] == ["ऊपर", "गोल", "ऊपर", "नई पंक्ति"]     # repeats follow; the extra line is new
+    assert [s["key"] for s in new] == ["Kite flies", "Kite circles", "Kite again", ""] and new[1]["lines"] == 2
     assert (spec.parent / "keys" / "s01_a.png").read_bytes() == b"key"
     pixar.load(spec)
-    plain = sl.new_episode(tmp_path / "bus-2", "Bus 2", "en", ["a", "b"], 4.8, "gaana-gaadi", "meadow", source=src)
-    assert all(not s["key"] for s in sl.read(plain)["shots"]) and not (plain.parent / "keys").exists()
 
 
 def test_drafter_fills_empty_shots_and_strips_invented_tokens(tmp_path):
@@ -187,3 +191,14 @@ def test_director_proposes_validates_and_applies(spec):
     ids = [s["id"] for s in rows]
     assert ids.index("s05") == ids.index("s04") - 1
     assert shotdirector.load(spec.parent)["proposal"] is None
+
+
+def test_keyframe_redo_reseeds_the_end_key_too(tmp_path):
+    from kidzone.studio.specedit import bump_seed
+    spec = sl.new_episode(tmp_path / "e", "E", "en", ["one"], 4.8, "gaana-gaadi", "meadow")
+    sl.update(spec, "s00", {"key": "A", "motion": "m", "end": {"seed": 1104, "key": "B"}})
+    bump_seed(spec, "s00", "seed", 7)
+    s0 = sl.read(spec)["shots"][0]
+    assert s0["seed"] != 100 and s0["end"]["seed"] != 1104 and s0["end"]["key"] == "B"
+    clip = bump_seed(spec, "s00", "clip_seed", 7)   # a clip redo leaves both keyframes alone
+    assert sl.read(spec)["shots"][0]["end"]["seed"] == s0["end"]["seed"] and clip

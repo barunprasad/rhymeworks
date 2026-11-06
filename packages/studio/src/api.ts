@@ -107,7 +107,7 @@ export const api = {
   episodes: () => req<EpisodeSummary[]>("GET", "/api/episodes"),
   episode: (slug: string) => req<EpisodeDetail>("GET", `/api/episodes/${slug}`),
   run: (slug: string, phase: JobKind, only?: string[], redo?: string[], all = false) => req<Job>("POST", `/api/episodes/${slug}/run`, { phase, only, redo, all }),
-  check: (slug: string, stage: "keys" | "clips", force = true) => req<Job>("POST", `/api/episodes/${slug}/run`, { phase: "check", stage, force }),
+  check: (slug: string, stage: "keys" | "clips", only?: string[]) => req<Job>("POST", `/api/episodes/${slug}/run`, { phase: "check", stage, force: true, only }),
   pack: (slug: string, intro: boolean) => req<Job>("POST", `/api/episodes/${slug}/run`, { phase: "package", intro }),
   introClips: () => req<{ path: string; url: string; seconds: number }[]>("GET", "/api/intro-clips"),
   upload: (slug: string) => req<UploadPack>("GET", `/api/episodes/${slug}/upload`),

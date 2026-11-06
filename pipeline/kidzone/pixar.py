@@ -314,6 +314,33 @@ def project_intro(ep: Episode) -> Path | None:
     return paths.HOME / p if p and (paths.HOME / p).is_file() else None
 
 
+def intro_record(ep: Episode) -> dict | None:
+    """What the intro version in upload/ was made with: {"intro": path in HOME, "seconds": how much it shifts the episode}."""
+    side = ep.dir / "upload" / f"{ep.output.stem}_intro_1080p.json"
+    try:
+        return json.loads(side.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def adopt_old_upload(ep: Episode) -> None:
+    """Before the intro became optional, package wrote the intro version as <stem>_1080p.mp4: rename such a file to
+    <stem>_intro_1080p.mp4 (it is longer than the episode by the intro) so "Original" really is the original."""
+    up = ep.dir / "upload"
+    orig, intro = up / f"{ep.output.stem}_1080p.mp4", up / f"{ep.output.stem}_intro_1080p.mp4"
+    if not orig.exists() or intro.exists() or not ep.output.exists():
+        return
+    try:
+        extra = _probe_seconds(orig) - _probe_seconds(ep.output)
+    except ValueError:
+        return
+    if extra > 1.0:
+        orig.rename(intro)
+        clip = project_intro(ep)
+        intro.with_suffix(".json").write_text(json.dumps(
+            {"intro": rel(clip) if clip else None, "seconds": round(extra, 3), "note": "renamed from the old package name"}))
+
+
 def _newer(out: Path, *src: Path) -> bool:
     return out.exists() and all(out.stat().st_mtime >= s.stat().st_mtime for s in src)
 
@@ -328,6 +355,8 @@ def package(ep: Episode, dry=False, intro=False) -> Path:
     Each is remade only when the assembled episode (or the intro clip) is newer."""
     up = ep.dir / "upload"
     up.mkdir(exist_ok=True)
+    if not dry:
+        adopt_old_upload(ep)
     stem = ep.output.stem
     final = up / f"{stem}_1080p.mp4"
     if not _newer(final, ep.output):
@@ -339,9 +368,13 @@ def package(ep: Episode, dry=False, intro=False) -> Path:
             print("this project has no intro clip (Project settings → Channel intro): made the original only")
             return final
         with_intro, out = ep.dir / f"{stem}_intro.mp4", up / f"{stem}_intro_1080p.mp4"
-        if not _newer(out, ep.output, clip):
+        made_with = (intro_record(ep) or {}).get("intro")
+        if not _newer(out, ep.output, clip) or made_with != rel(clip):
             _run([str(INTRO_ADD), str(clip), str(ep.output), str(with_intro)], dry)
             _upscale(with_intro, out, dry)
+            if not dry:
+                out.with_suffix(".json").write_text(json.dumps(
+                    {"intro": rel(clip), "seconds": round(_probe_seconds(with_intro) - _probe_seconds(ep.output), 3)}))
             print(f"with intro → {rel(out)}")
     return final
 

@@ -82,18 +82,43 @@ def lyrics_block(ep: pixar.Episode) -> str:
     return "\n".join(lines)
 
 
-CHAPTER_BLOCK = re.compile(r"(?:^\d{2}:\d{2} [^\n]*\n?)+", re.M)
+CHAPTER_LINE = re.compile(r"^(\d{2}):(\d{2}) (.*)$")
+CHAPTERS_ORIGINAL = "Chapters: original file"   # in the header of upload_text.md written since the intro became optional
 
 
-def description_for(ep: pixar.Episode, description: str, with_intro: bool) -> str:
-    """The description with chapter times for the chosen file: the original, or the one that opens with the intro."""
-    if with_intro:
-        proj = paths.projects().get(ep.spec["episode"].get("project") or paths.default_project(), {})
-        chap = chapters(ep, offset=intro_seconds(ep), first=f"{proj.get('name') or 'Intro'}!")
-    else:
-        chap = chapters(ep)
-    block = "\n".join(f"{mmss(t)} {name}" for t, name in chap) + "\n"
-    return CHAPTER_BLOCK.sub(lambda m: block if m.group(0).endswith("\n") else block.rstrip("\n"), description, count=1)
+def intro_offset(ep: pixar.Episode) -> float:
+    """How far the intro version shifts the episode: as recorded when it was made, else the project's clip."""
+    return float((pixar.intro_record(ep) or {}).get("seconds") or intro_seconds(ep))
+
+
+def description_for(ep: pixar.Episode, text: dict, with_intro: bool) -> str:
+    """The description with chapter times for the chosen file. The stored chapters are shifted (never recomputed, so hand
+    edits and the text of a published video survive). Texts from before the intro became optional were written for the
+    intro version."""
+    stored = 0.0 if CHAPTERS_ORIGINAL in text.get("meta", "") or not pixar.project_intro(ep) and not pixar.intro_record(ep) else intro_offset(ep)
+    target = intro_offset(ep) if with_intro else 0.0
+    delta = target - stored
+    lines = text["description"].split("\n")
+    rows = [i for i, ln in enumerate(lines) if CHAPTER_LINE.match(ln)]
+    if abs(delta) < 0.05 or not rows:
+        return text["description"]
+    proj = paths.projects().get(ep.spec["episode"].get("project") or paths.default_project(), {})
+    out, last = [], None
+    for k, i in enumerate(rows):
+        m = CHAPTER_LINE.match(lines[i])
+        t = int(m.group(1)) * 60 + int(m.group(2))
+        if k == 0:   # 00:00 stays; it names the channel in the intro version and the song in the original
+            out.append((i, f"00:00 {(proj.get('name') or 'Intro') + '!' if with_intro else ep.spec['episode']['title']}"))
+            last = 0.0
+            continue
+        t = max(0.0, t + delta)
+        if t - last < 10:   # YouTube wants chapters at least 10 s long
+            out.append((i, None))
+            continue
+        out.append((i, f"{mmss(t)} {m.group(3)}"))
+        last = t
+    new = dict(out)
+    return "\n".join(new[i] if i in new else ln for i, ln in enumerate(lines) if not (i in new and new[i] is None))
 
 
 def parse_text(md: str) -> dict:
@@ -130,7 +155,7 @@ def write_text(ep: pixar.Episode, force: bool = False, chat=chat_json) -> Path:
     subscribe = proj.get("subscribe", {}).get(lang) or (f"Subscribe to {channel} for new songs!" if channel else "")
     text = f"""# {e['title']} ({lang.upper()}): upload text
 
-File: {ep.output.stem}_1080p.mp4 · Thumbnail: thumbnail.jpg
+File: {ep.output.stem}_1080p.mp4 · {CHAPTERS_ORIGINAL} · Thumbnail: thumbnail.jpg
 Audience: Yes, made for kids · AI use: YES (the song is AI-generated music and is the main focus of the video) · Playlist: {playlist}
 Category: Education · Language: {'Hindi' if lang == 'hi' else 'English'} · Visibility: Unlisted first → Public
 

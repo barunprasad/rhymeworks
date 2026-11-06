@@ -209,6 +209,7 @@ def master(ep: pixar.Episode, take: str) -> dict:
     set_table_field(spec, "song", "audio", f"song/master_{lang}.wav", f"take {take}, mastered in the studio")
     set_table_field(spec, "song", "vocals", f"song/vox_{lang}.wav")
     set_table_field(spec, "song", "take", take)
+    set_table_field(spec, "song", "seconds", None)   # an ending set for the previous song doesn't apply to this one
     # instrumental intro shot(s) in front of the first sung line
     shots = shotlist.read(spec)["shots"]
     lead = 0
@@ -344,6 +345,7 @@ def import_song(ep: pixar.Episode, src: Path) -> dict:
     set_table_field(spec, "song", "bpm", round(bpm))
     set_table_field(spec, "song", "take", None)
     set_table_field(spec, "song", "imported", _rel(src))
+    set_table_field(spec, "song", "seconds", None)
     shotlist.replace_shots(spec, plan)
     log("import", f"{len(segs)} sung lines, bar {bar:.3f} s ({bpm} bpm), start moved {shift:+.3f} s → {len(plan)} shots")
     return {"bar": bar, "shift": shift, "shots": len(plan), "lines": len(segs)}

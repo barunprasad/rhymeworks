@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, useLoad } from "../api";
 import { go, href } from "../router";
 import { ErrorNote } from "../components/bits";
@@ -27,15 +27,21 @@ export function NewEpisodePage({ from }: { from?: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const filled = useRef<string | null>(null);   // lyrics put in by the last source (replaced when you pick another)
   useEffect(() => {   // picking an episode to start from fills in its language, tempo, lyrics and first scene
-    if (!source) return;
+    if (!source) {
+      setLyrics((l) => (filled.current !== null && l === filled.current ? "" : l));
+      filled.current = null;
+      return;
+    }
     let live = true;
     Promise.all([api.song(source), api.episode(source)]).then(([sg, ep]) => {
       if (!live) return;
       setLang(sg.lang === "en" ? "en" : "hi");
       setBpm(sg.bpm);
       setBarsPerLine([1, 2, 4].includes(sg.bars_per_line) ? sg.bars_per_line : 2);
-      setLyrics((l) => l.trim() ? l : sg.lyrics);
+      setLyrics((l) => (!l.trim() || l === filled.current ? sg.lyrics : l));   // never overwrite lyrics you typed
+      filled.current = sg.lyrics;
       if (ep.shots[0]?.scene) setScene(ep.shots[0].scene);
     }).catch(() => {});
     return () => { live = false; };
@@ -93,7 +99,7 @@ export function NewEpisodePage({ from }: { from?: string }) {
                 style={{ textAlign: "left", cursor: "pointer", color: "var(--text)", gap: 12, flexWrap: "nowrap" }}>
                 <span className="col" style={{ gap: 2 }}>
                   <span style={{ fontWeight: 700 }}>Reuse its shots and keyframes</span>
-                  <span className="faint small">Line 1 gets its shot 1, line 2 its shot 2, … with the pictures already drawn: good for the same song in another language or a new verse. Extra lines start empty.</span>
+                  <span className="faint small">Every shot comes along with its timing and pictures; each of its lyric lines becomes your line in the same place (repeats too). Good for the same song in another language. Extra lines get new shots.</span>
                 </span>
                 <span className={`switch ${copyShots ? "on" : ""}`} aria-hidden="true" />
               </button>

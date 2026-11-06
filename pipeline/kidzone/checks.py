@@ -5,13 +5,14 @@ video; the mean change between neighbouring frames (64×36 grey, 4 fps) below FR
 
 Pictures (`kidzone check <episode.toml> --stage keys|clips`, a queued job, ~2 s per picture with the writer model):
 the local vision-capable writer model counts each character the shot should have, plus any extras, and lists clear
-drawing mistakes (extra hands, melted faces, floating characters). Keyframes are checked as they are; clips at three
-moments (start, middle, end). Results go to episodes/<slug>/checks.json, keyed by output file and its mtime, so a
+drawing mistakes (extra hands, melted faces, floating characters). Keyframes are checked as they are; clips at five
+moments (start, ¼, ½, ¾, end). Results go to episodes/<slug>/checks.json, keyed by output file and its mtime, so a
 redone shot is checked again and an unchanged one is skipped.
 """
 
 import base64
 import json
+import os
 import subprocess
 import tomllib
 import urllib.request
@@ -60,12 +61,17 @@ def _path(ep_dir: Path) -> Path:
 
 def load(ep_dir: Path) -> dict:
     p = _path(ep_dir)
-    data = json.loads(p.read_text()) if p.exists() else {}
+    try:
+        data = json.loads(p.read_text()) if p.exists() else {}
+    except (ValueError, OSError):   # a damaged file only means "not checked yet"
+        data = {}
     return {st: data.get(st, {}) for st in STAGES}
 
 
 def _save(ep_dir: Path, data: dict) -> None:
-    _path(ep_dir).write_text(json.dumps(data, indent=1, ensure_ascii=False))
+    tmp = _path(ep_dir).with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=1, ensure_ascii=False))
+    os.replace(tmp, _path(ep_dir))   # never a half-written file
 
 
 def fresh(entry: dict | None, f: Path) -> bool:
@@ -149,16 +155,18 @@ def run(spec: str, stage: str, only: list[str] | None = None, force: bool = Fals
     try:
         for name, f, cast in todo:
             print(f"check {name}", flush=True)
+            mtime = f.stat().st_mtime   # the picture this result is about (it may be replaced while we look)
             names = _names(cast, reg)
             if stage == "keys":
                 shots = [("", f.read_bytes())]
             else:
                 d = _seconds(f)
-                shots = [(f" at {t:.1f} s", _frame(f, t)) for t in (0.3, d / 2, max(0.3, d - 0.3))]
+                moments = sorted({round(t, 1) for t in (0.3, d * 0.25, d * 0.5, d * 0.75, max(0.3, d - 0.3))})
+                shots = [(f" at {t:.1f} s", _frame(f, t)) for t in moments]
             frames = [{"at": where.strip(), **ask(img, names)} for where, img in shots if img]
             flags = list(dict.fromkeys(x for fr in frames for x in flags_of(fr, fr["at"] and f" ({fr['at']})")))
             data = load(ep.dir)
-            data[stage][name] = {"mtime": f.stat().st_mtime, "expected": [n for n, _ in names], "frames": frames, "flags": flags}
+            data[stage][name] = {"mtime": mtime, "expected": [n for n, _ in names], "frames": frames, "flags": flags}
             _save(ep.dir, data)
             print(f"  {name}: {'; '.join(flags) or 'looks right'}", flush=True)
     finally:   # free the memory for the next GPU job

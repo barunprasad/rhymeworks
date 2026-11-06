@@ -51,12 +51,18 @@ def test_song_end_is_found_before_a_silent_tail(tmp_path):
     assert ending.last_sound(wav, ending.QUIET_DB) == pytest.approx(3.0, abs=0.15)
 
 
-def test_chapters_are_swapped_for_the_intro_version(monkeypatch):
+def test_chapters_shift_for_the_intro_version(monkeypatch):
     from kidzone import upload
-    desc = "Hello.\n\n00:00 Gaana Gaadi!\n00:13 Wheels go round\n01:02 Wipers\n\n🎵 Lyrics\n..."
-    monkeypatch.setattr(upload, "chapters", lambda ep, offset=0.0, first=None: [(0.0, first or "Title"), (10.0 + offset, "Wheels go round")])
-    monkeypatch.setattr(upload, "intro_seconds", lambda ep: 3.7)
+    desc = "Hello.\n\n00:00 Kite Song\n00:13 Up we go\n00:25 Round we go\n01:02 Wipers\n\n🎵 Lyrics\n..."
+    monkeypatch.setattr(upload, "intro_offset", lambda ep: 3.7)
+    monkeypatch.setattr(upload.pixar, "project_intro", lambda ep: "clip")
+    monkeypatch.setattr(upload.pixar, "intro_record", lambda ep: None)
     monkeypatch.setattr(upload.paths, "projects", lambda: {"p": {"name": "Gaana Gaadi"}})
-    ep = type("E", (), {"spec": {"episode": {"project": "p"}}})()
-    assert "00:00 Title\n00:10 Wheels go round\n\n🎵" in upload.description_for(ep, desc, False)
-    assert "00:00 Gaana Gaadi!\n00:14 Wheels go round\n\n🎵" in upload.description_for(ep, desc, True)
+    ep = type("E", (), {"spec": {"episode": {"project": "p", "title": "Kite Song"}}})()
+    new = {"meta": f"File: x · {upload.CHAPTERS_ORIGINAL}", "description": desc}
+    assert upload.description_for(ep, new, False) == desc                      # written for the original: unchanged
+    assert "00:00 Gaana Gaadi!\n00:17 Up we go\n00:29 Round we go\n01:06 Wipers\n\n🎵" in upload.description_for(ep, new, True)
+    old = {"meta": "File: x", "description": desc}                            # older texts were written for the intro version
+    assert upload.description_for(ep, old, True) == desc
+    shifted = upload.description_for(ep, old, False)
+    assert "00:00 Kite Song\n00:21 Round we go\n00:58 Wipers" in shifted and "Up we go" not in shifted   # 9.3 s < 10 s: dropped

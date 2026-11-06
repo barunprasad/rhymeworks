@@ -47,8 +47,9 @@ export function ReviewPage({ slug, stage }: { slug: string; stage: "keys" | "cli
       ep.reload();
     } catch (e) { setErr((e as Error).message); }
   };
-  const checkAgain = async () => {
-    try { await api.check(slug, stage); ep.reload(); } catch (e) { setErr((e as Error).message); }
+  const checkAgain = async () => {   // just the selected shot
+    if (!sel) return;
+    try { await api.check(slug, stage, [sel.id]); ep.reload(); } catch (e) { setErr((e as Error).message); }
   };
   const next = async () => {
     try { await api.run(slug, stage === "keys" ? "clips" : "assemble"); go("episodes", slug); } catch (e) { setErr((e as Error).message); }

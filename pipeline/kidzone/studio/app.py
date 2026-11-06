@@ -128,7 +128,7 @@ def intro_clips():
     """Short videos in the content folder's assets/ that could open a channel's videos (Project settings → Channel intro)."""
     out = []
     for f in sorted(ASSETS.rglob("*")):
-        if f.suffix.lower() in projectsedit.VIDEO and f.is_file() and not any(p.startswith(".") for p in f.parts):
+        if f.suffix.lower() in projectsedit.VIDEO and f.is_file() and not any(p.startswith(".") for p in f.relative_to(ASSETS).parts):
             try:
                 sec = pixar._probe_seconds(f)
             except ValueError:
@@ -312,6 +312,8 @@ def set_ending(slug: str, req: EndingReq):
     of episode.toml and kept in removed_shots.toml (with their keyframes and clips still on disk); then it re-assembles."""
     spec = _spec(slug)
     ep = pixar.load(spec)
+    if ep.spec["episode"].get("status") == "published":
+        raise HTTPException(409, "this episode is published; mark it as not published first")
     song_len = pixar._probe_seconds(ep.song) if ep.song.exists() else 0
     if not 5 <= req.seconds <= max(song_len, ep.shots[-1].start + ep.shots[-1].dur) + 0.05:
         raise HTTPException(400, "the end must be inside the song")
@@ -462,6 +464,8 @@ def create_episode(req: NewEpisode):
     if req.lang not in ("en", "hi"):
         raise HTTPException(400, "lang must be en or hi")
     lines = [ln.strip() for ln in req.lyrics.splitlines() if ln.strip() and not ln.strip().startswith("[")]
+    if req.source and (not shotlist.slug_ok(req.source) or req.source.startswith("_")):
+        raise HTTPException(400, "pick an episode to start from")
     source = _spec(req.source) if req.source else None
     if req.project and req.project not in paths.projects():
         raise HTTPException(400, f"no project {req.project}")
@@ -750,6 +754,8 @@ def get_upload(slug: str):
     d = ep.dir / "upload"
     stem = ep.output.stem
     intro = pixar.project_intro(ep)
+    pixar.adopt_old_upload(ep)
+    made_with = (pixar.intro_record(ep) or {}).get("intro")
     text_f = d / "upload_text.md"
     text = up.parse_text(text_f.read_text()) if text_f.exists() else None
     thumbs = sorted([p for p in d.glob("thumb*.jpg") if not p.name.startswith("thumb_704")] if d.exists() else [],
@@ -763,8 +769,9 @@ def get_upload(slug: str):
     for variant, f in (("original", d / f"{stem}_1080p.mp4"), ("intro", d / f"{stem}_intro_1080p.mp4")):
         if f.exists():
             videos.append({"variant": variant, "url": file_url(f), "name": f.name, "mb": round(f.stat().st_size / 1e6, 1),
-                           "old": ep.output.exists() and f.stat().st_mtime < ep.output.stat().st_mtime,
-                           "description": up.description_for(ep, text["description"], variant == "intro") if text else None})
+                           "old": (ep.output.exists() and f.stat().st_mtime < ep.output.stat().st_mtime)
+                           or (variant == "intro" and bool(made_with) and made_with != (paths.rel(intro) if intro else None)),
+                           "description": up.description_for(ep, text, variant == "intro") if text else None})
     return {
         "slug": slug, "title": ep.spec["episode"]["title"], "lang": lang, "playlist": playlist,
         "published": ep.spec["episode"].get("status") == "published",

@@ -86,7 +86,7 @@ export function UploadPage({ slug }: { slug: string }) {
 
       <div className="split">
         <div className="grow">
-          {(d.video || d.intro) && d.episode_ready && (
+          {(d.videos.length > 0 || (d.intro && d.episode_ready)) && (
             <section className="col" aria-labelledby="vid">
               <h2 id="vid" className="section-title">VIDEO FILE</h2>
               <div className="chips" role="tablist" aria-labelledby="vid">

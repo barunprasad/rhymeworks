@@ -37,7 +37,7 @@ export function CheckDetails({ c, stage, onAgain }: { c?: AutoCheck; stage: "key
         {c.state === "partial" && <li className="ac-wait"><span aria-hidden="true">–</span>Pictures not checked yet</li>}
       </ul>
       <p className="faint small" style={{ margin: 0 }}>
-        {stage === "clips" ? "Movement is checked instantly; pictures (who appears, extra hands, melted faces) at the start, middle and end." : "Checks who appears and how often, extra hands and melted faces."} Hints only: you still decide.
+        {stage === "clips" ? "Movement is checked instantly; pictures (who appears, extra hands, melted faces) at five moments from start to end." : "Checks who appears and how often, extra hands and melted faces."} Hints only: you still decide.
       </p>
     </section>
   );

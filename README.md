@@ -205,7 +205,7 @@ or **Auto-checking…**. They are hints only; you still approve.
 - **Pictures** (a queued job right after each keyframes or clips run, about a minute per episode): the writer model
   counts each character the shot should have and looks for extras and clear drawing mistakes (the same character
   twice, an extra puppy, extra hands, melted faces, someone floating, bodies merging), in each keyframe and at the
-  start, middle and end of each clip. **Check again** re-runs it for a shot; the Queue settings can switch the automatic
+  five moments of each clip (start to end). **Check again** re-runs it for a shot; the Queue settings can switch the automatic
   run off. **Redo all** in the Review banner redoes every flagged shot that is still waiting, with the reason as the note.
 
 ## The studio, screen by screen

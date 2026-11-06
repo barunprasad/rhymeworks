@@ -74,15 +74,17 @@ at review gates; everything else is automated.
 - **Auto-check** (`kidzone/checks.py`): hints, never decisions. Movement is computed in the API for every clip (pure
   Python on 64×36 grey frames, cached by mtime; frozen = mean frame step < 1.5). The picture check asks the writer model
   (vision) to count each expected character (registry `[cast]` of the shot's keys; props aren't counted) plus extras and
-  list clear drawing mistakes, per keyframe and at 3 moments per clip → `episodes/<slug>/checks.json` keyed by output name
+  list clear drawing mistakes, per keyframe and at 5 moments per clip → `episodes/<slug>/checks.json` keyed by output name
   + mtime (a redone shot is checked again). Counting per named character works much better than "count the people".
 - **Song ending** (`kidzone/ending.py`): last sound (−50 dBFS) and last singing (vocal, −38 dBFS) in 0.1 s windows; the
   episode API offers an end point when the film runs > 3 s past the sound, or > 8 s of music follow the last sung line.
   `POST /api/episodes/{slug}/ending` sets `[song] seconds` (assembly then fades the music), moves shots that would start
   after it to `removed_shots.toml`, and queues assemble.
 - **New episode from another** (`shotlist.new_episode(source=, copy_shots=)`): copies `[style]`, `[vars]` and the song
-  voice/key; with copy_shots, shot i's prompts/scene/seed/end/feel go to new line i and its keyframes are copied (same
-  prompt + seed = same picture).
+  voice/key; with copy_shots every source shot comes along as it is (lines, prompts, scene, seeds, end) with its
+  keyframes (same prompt + seed = same picture), each distinct lyric line replaced by the new line in the same position.
+- A keyframe redo bumps the shot's `seed` and its end key's inline `seed` (both pictures are redrawn); mastering or
+  importing a song clears `[song] seconds`.
 - **Review**: decisions → `episodes/<slug>/review.toml`; an approval goes stale when the file changes;
   `status = "published"` episodes count as approved. Redo bumps `seed` (keys) or `clip_seed` (clips) and queues only that shot.
 - **Writes are safe**: every `episode.toml` / `registry.toml` write is format-preserving (comments survive) and
@@ -105,8 +107,11 @@ at review gates; everything else is automated.
   parsed before writing. Sheets that must cover the screen are rendered with `createPortal` (the phone top bar's
   `backdrop-filter` makes it the containing block for fixed elements).
 - Episodes move between projects with `PUT /api/episodes/{slug}/project` (one line in `[episode]`). Upload descriptions are
-  stored with chapters for the original file; `upload.description_for` swaps in the chapter block for the intro version
-  (offset = intro length − 0.3 s crossfade, first chapter = the channel name).
+  stored with chapters for the original file (header says `Chapters: original file`; older texts were written for the
+  intro version); `upload.description_for` shifts the stored chapter times by the intro offset (never recomputes them, so
+  hand edits and published text survive; chapters closer than 10 s are dropped). The intro version records the clip it
+  was made with in `upload/<stem>_intro_1080p.json` (path + offset), so a different intro marks it out of date;
+  `pixar.adopt_old_upload` renames a pre-change `<stem>_1080p.mp4` that already contains the intro.
 - **Animatic / Watch** (`#/episodes/<slug>/watch`): keyframes (Ken Burns) or clips cut to the song in the browser, no
   GPU. The clip player keeps the previous, current and next `<video>` mounted with the keyframe as poster, so cuts never flash black.
 

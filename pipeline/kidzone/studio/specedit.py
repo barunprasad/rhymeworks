@@ -29,6 +29,8 @@ def bump_seed(spec: Path, shot: str, field: str, default: int) -> int:
         new = default + SEED_STEP
         idm = re.search(r"^id\s*=.*$", block, re.M)
         block = block[:idm.end()] + f"\n{field} = {new}" + block[idm.end():]
+    if field == "seed":   # keyframe redo redraws both keys: the end key's inline table gets a new seed too
+        block = re.sub(r"^(end\s*=\s*\{[^\n]*?\bseed\s*=\s*)(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)) + SEED_STEP}", block, count=1, flags=re.M)
     out = text[:a] + block + text[b:]
     tomllib.loads(out)   # never write a broken spec
     spec.write_text(out)

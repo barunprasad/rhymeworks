@@ -141,7 +141,10 @@ function SettingsForm({ p, onClose }: { p: Project; onClose: () => void }) {
     setBusy(true); setErr(null);
     try {
       const only = (r: Record<string, string>) => Object.fromEntries(["en", "hi"].map((l) => [l, langs.includes(l) ? (r[l] ?? "") : ""]));
-      await api.patchProject(id, { name, tagline, icon, intro: intro || null, languages: langs, subscribe: only(subscribe), playlists: only(playlists) });
+      await api.patchProject(id, {   // the picture and intro only when changed: a moved file must not block saving the name
+        name, tagline, languages: langs, subscribe: only(subscribe), playlists: only(playlists),
+        ...(icon !== (p.icon_path ?? null) ? { icon } : {}), ...(intro !== (p.intro ?? "") ? { intro: intro || null } : {}),
+      });
       onClose();
     } catch (e) { setErr((e as Error).message.replace(/^\w+ \S+: /, "")); setBusy(false); }
   };

@@ -260,8 +260,8 @@ def new_episode(ep_dir: Path, title: str, lang: str, lines: list[str], line_seco
     """episodes/<slug>/episode.toml with one (empty) shot per lyric line. The song comes later (song/master_<lang>.wav).
 
     source: start from another episode's spec: its [style] and [vars] and its singing voice come along; with copy_shots
-    its shots are reused in order (shot 1's prompts, scene and seed for the new line 1, …) together with their keyframes,
-    so only new lines need drafting and drawing."""
+    its shots come along as they are (timing in lines, prompts, scenes, seeds) with their keyframes, each lyric replaced by
+    the new line in the same position, so only extra lines need drafting and drawing."""
     if ep_dir.exists():
         raise SpecError(f"episodes/{ep_dir.name} already exists")
     src = tomllib.loads(source.read_text()) if source else {}
@@ -293,15 +293,27 @@ def new_episode(ep_dir: Path, title: str, lang: str, lines: list[str], line_seco
         *(f"{k} = {toml_value(v)}" for k, v in src.get("vars", {}).items()),
         "",
     ]
-    old_shots = src.get("shot", []) if copy_shots else []
-    keep = ("seed", "scene", "sing", "end", "feel", "key", "motion")
+    keep = ("seed", "scene", "sing", "end", "lines", "feel", "key", "motion")
     shots, copied = [], []
-    for i, ln in enumerate(lines or [""]):
-        f = {"lyric": ln.strip() or None, "seed": 100 + i, "scene": scene, "key": "", "motion": ""}
-        if i < len(old_shots):
-            f.update({k: old_shots[i][k] for k in keep if old_shots[i].get(k) is not None})
-            copied.append((old_shots[i]["id"], f"s{i:02d}"))
-        shots.append(_render_block(f"s{i:02d}", f))
+    if copy_shots and src.get("shot"):
+        # the source's shots as they are (a shot may span several lines; a line may repeat; instrumental shots stay),
+        # with each lyric replaced by the new line in the same position among the source's distinct lyric lines
+        order = list(dict.fromkeys((sh.get("lyric") or "").strip() for sh in src["shot"] if (sh.get("lyric") or "").strip()))
+        swap = {old: new.strip() for old, new in zip(order, lines)} if lines else {}
+        if not order:   # a source without lyric lines in its shots: the new lines go onto its shots in order
+            order = [None] * min(len(lines), len(src["shot"]))
+        for i, sh in enumerate(src["shot"]):
+            f = {k: sh[k] for k in keep if sh.get(k) is not None}
+            lyric = (sh.get("lyric") or "").strip()
+            f["lyric"] = (swap.get(lyric, lyric) if swap else (lines[i].strip() if i < len(order) else lyric)) or None
+            shots.append(_render_block(f"s{i:02d}", f))
+            copied.append((sh["id"], f"s{i:02d}"))
+        for j, ln in enumerate(lines[len(order):]):   # new lines beyond the source's: empty shots to draft
+            n = len(shots)
+            shots.append(_render_block(f"s{n:02d}", {"lyric": ln.strip() or None, "seed": 100 + n, "scene": scene, "key": "", "motion": ""}))
+    else:
+        for i, ln in enumerate(lines or [""]):
+            shots.append(_render_block(f"s{i:02d}", {"lyric": ln.strip() or None, "seed": 100 + i, "scene": scene, "key": "", "motion": ""}))
     ep_dir.mkdir(parents=True)
     spec = ep_dir / "episode.toml"
     try:
