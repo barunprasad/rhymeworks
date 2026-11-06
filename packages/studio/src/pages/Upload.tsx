@@ -43,7 +43,7 @@ export function UploadPage({ slug }: { slug: string }) {
   const all = done === d.checks.length;
   const working = d.jobs.some((j) => j.kind === "upload" || j.kind === "package");
   const packing = d.jobs.some((j) => j.kind === "package");
-  const missing = [!d.video && "the 1080p file", !d.text && "the upload text", !d.thumbs.length && "thumbnails"].filter(Boolean) as string[];
+  const missing = [!d.video && "the video", !d.text && "the upload text", !d.thumbs.length && "thumbnails"].filter(Boolean) as string[];
 
   const makeAll = () => act(async () => {
     if (!d.video) await api.pack(slug, false);
@@ -77,10 +77,10 @@ export function UploadPage({ slug }: { slug: string }) {
         <div className="card pad col" style={{ gap: 10, borderColor: "var(--gate-line)" }}>
           <b>Still to make: {missing.join(", ")}</b>
           <span className="muted small" style={{ lineHeight: 1.45 }}>
-            {d.episode_ready ? "The 1080p file is the episode as it is (CPU, a few minutes); a version with your channel intro is one tap below. The text and thumbnails come from the local writer model and your keyframes (about a minute)."
+            {d.episode_ready ? "The text and thumbnails come from the local writer model and your keyframes (about a minute). The video files are made below."
               : "Assemble the episode first (episode page, step 05)."}
           </span>
-          <button className="btn btn-go" style={{ alignSelf: "flex-start" }} disabled={busy || !d.episode_ready} onClick={makeAll}>Make {missing.join(" + ")}</button>
+          <button className="btn btn-go" style={{ alignSelf: "flex-start" }} disabled={busy || !d.episode_ready} onClick={makeAll}>Create {missing.join(" + ")}</button>
         </div>
       )}
 
@@ -95,6 +95,15 @@ export function UploadPage({ slug }: { slug: string }) {
                   <button role="tab" className="chip-btn" aria-selected={variant === "intro"} aria-pressed={variant === "intro"} onClick={() => setPick("intro")}>With {introName}</button>
                 )}
               </div>
+              <span className="faint small">
+                {variant === "intro" ? `The ${introName} (${d.intro?.name ?? "clip"}) first, then the episode: the usual file for YouTube.` : "The episode as it is, without an intro (for Shorts, sharing, or another channel)."}
+              </span>
+              {d.ending && (
+                <div className="row between small ending-card" style={{ padding: "10px 14px" }}>
+                  <span>The film runs {Math.round(d.ending.film_end - d.ending.sound_end)} s past the end of the song. Fix the ending first, then create the videos.</span>
+                  <a className="btn" href={href("episodes", slug)}>Fix the ending</a>
+                </div>
+              )}
               {shown ? (<>
                 <video key={shown.url} src={shown.url} controls playsInline preload="metadata" className="thumb" />
                 <div className="row between small">
@@ -104,20 +113,20 @@ export function UploadPage({ slug }: { slug: string }) {
                 {shown.old && (
                   <div className="row between small" style={{ color: "var(--gate-text)" }}>
                     <span>The episode changed since this file was made.</span>
-                    <button className="btn" disabled={busy || packing} onClick={() => act(() => api.pack(slug, variant === "intro"))}>Make it again</button>
+                    <button className="btn" disabled={busy || packing} onClick={() => act(() => api.pack(slug, variant === "intro"))}>Create it again</button>
                   </div>
                 )}
               </>) : (
-                <div className="card pad col" style={{ gap: 8 }}>
-                  <span className="muted small" style={{ lineHeight: 1.45 }}>
-                    {variant === "intro"
-                      ? `The same 1080p file with the ${introName} (${d.intro?.name}) at the start, for YouTube. The original stays as it is. CPU, a few minutes.`
-                      : "The episode as it is, at 1080p. CPU, a few minutes."}
-                  </span>
-                  <button className="btn btn-go" style={{ alignSelf: "flex-start" }} disabled={busy || packing || (variant === "intro" && !d.intro)}
-                    onClick={() => act(() => api.pack(slug, variant === "intro"))}>
-                    {packing ? "Making…" : variant === "intro" ? `Make the version with the ${introName}` : "Make the 1080p file"}
-                  </button>
+                <div className="video-empty">
+                  {d.poster && <img src={d.poster} alt="" />}
+                  <div className="col" style={{ gap: 10, alignItems: "center", textAlign: "center" }}>
+                    <b>{variant === "intro" ? `No video with the ${introName} yet` : "No original video yet"}</b>
+                    <button className="btn btn-go" disabled={busy || packing || (variant === "intro" && !d.intro)}
+                      onClick={() => act(() => api.pack(slug, variant === "intro"))}>
+                      {packing ? "Creating…" : variant === "intro" ? `Create the video with the ${introName}` : "Create the original video"}
+                    </button>
+                    <span className="small" style={{ opacity: .8 }}>1920×1080 · about {variant === "intro" ? "5" : "3"} minutes on the CPU{variant === "intro" ? " (makes the original too if needed)" : ""}</span>
+                  </div>
                 </div>
               )}
               {!d.intro && <span className="faint small">No channel intro yet: pick a clip in Project settings → Channel intro to get a version that opens with it.</span>}

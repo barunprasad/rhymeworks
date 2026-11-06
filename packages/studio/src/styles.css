@@ -386,3 +386,6 @@ h1 { font-size: 30px; letter-spacing: -0.02em; text-wrap: balance; }
 .ep-project { display: inline-flex; align-items: center; gap: 8px; }
 .ep-project .select { min-height: 36px; padding-block: 4px; width: auto; }
 .ending-card { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--gate-line); }
+.video-empty { position: relative; aspect-ratio: 16/9; max-width: 100%; border-radius: 12px; overflow: hidden; display: grid; place-items: center; background: var(--panel-2); border: 1px dashed var(--line-2); }
+.video-empty img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .28; filter: blur(2px); }
+.video-empty > div { position: relative; padding: 16px; color: var(--text); }

@@ -53,7 +53,7 @@ export interface NewEpisodeReq { title: string; lang: "en" | "hi"; lyrics: strin
 export interface UploadVideo { variant: "original" | "intro"; url: string; name: string; mb: number; old: boolean; description: string | null }
 export interface UploadPack {
   slug: string; title: string; lang: string; playlist: string; published: boolean; episode_ready: boolean;
-  video: UploadVideo | null; videos: UploadVideo[];
+  video: UploadVideo | null; videos: UploadVideo[]; poster: string | null; ending: EndingHint | null;
   intro: { name: string; url: string; project?: string } | null;   // the project's intro clip, if it has one
   text: { title: string; description: string; tags: string; meta: string } | null;
   thumbs: { name: string; url: string }[]; thumbnail: string | null;

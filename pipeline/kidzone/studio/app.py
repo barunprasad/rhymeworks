@@ -770,6 +770,8 @@ def get_upload(slug: str):
         "published": ep.spec["episode"].get("status") == "published",
         "episode_ready": ep.output.exists(),
         "video": videos[0] if videos else None, "videos": videos,
+        "poster": _poster(ep.dir, ep.spec.get("shot", [])),
+        "ending": (lambda e: e if e and e.get("kind") == "silent" else None)(None if ep.spec["episode"].get("status") == "published" else ending.suggest(ep)),
         "intro": {"name": intro.name, "url": file_url(intro), "project": proj.get("name")} if intro else None,
         "text": text, "thumbs": [{"name": p.name, "url": file_url(p)} for p in thumbs], "thumbnail": chosen,
         "checks": [{"id": k, "title": a.format(playlist=playlist), "detail": b, "on": k in st.get("checks", []) or ("checks" not in st and ep.spec["episode"].get("status") == "published")} for k, a, b in CHECKS],
